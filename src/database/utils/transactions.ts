@@ -2,9 +2,9 @@
  * Transaction utility helpers
  */
 
-import type { Database } from 'bun:sqlite';
-import type { Result } from '../types';
-import { Ok, Err } from '../types';
+import type { Database } from '../types';
+import type { Result, DatabaseError } from '../../shared/types';
+import { Ok, Err } from '../../shared/types';
 
 /**
  * Execute multiple operations in a transaction with automatic rollback

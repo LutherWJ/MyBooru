@@ -22,7 +22,7 @@ export function mapResult<T, U, E>(
     if (result.ok) {
         return Ok(fn(result.value));
     }
-    return result;
+    return result as Result<U, E>;
 }
 
 export function flatMapResult<T, U, E>(
@@ -32,7 +32,7 @@ export function flatMapResult<T, U, E>(
     if (result.ok) {
         return fn(result.value);
     }
-    return result;
+    return result as Result<U, E>;
 }
 
 export function unwrapOr<T, E>(result: Result<T, E>, defaultValue: T): T {
@@ -46,8 +46,9 @@ export function unwrap<T, E>(result: Result<T, E>): T {
     if (result.ok) {
         return result.value;
     }
+    const err = (result as Failure<E>).error;
     throw new Error(
-        `Attempted to unwrap an error Result: ${JSON.stringify(result.error)}`
+        `Attempted to unwrap an error Result: ${JSON.stringify(err)}`
     );
 }
 
@@ -58,6 +59,34 @@ export function isOk<T, E>(result: Result<T, E>): result is { ok: true; value: T
 export function isErr<T, E>(result: Result<T, E>): result is { ok: false; error: E } {
     return !result.ok;
 }
+
+// ============================================================================
+// Error Types
+// ============================================================================
+
+export type DatabaseError =
+  | { type: 'not_found'; message: string }
+  | { type: 'constraint_violation'; message: string }
+  | { type: 'invalid_input'; message: string }
+  | { type: 'database_error'; message: string; originalError?: unknown };
+
+export type FileSystemError =
+  | { type: 'file_not_found'; message: string; path: string }
+  | { type: 'permission_denied'; message: string; path: string }
+  | { type: 'disk_full'; message: string; path: string }
+  | { type: 'io_error'; message: string; path: string; originalError?: unknown };
+
+export type ParserError =
+    | { type: 'invalid_character'; message: string }
+
+export type MetadataError =
+  | { type: 'file_not_found'; message: string; path: string }
+  | { type: 'invalid_file'; message: string; path: string }
+  | { type: 'ffprobe_error'; message: string; path: string; originalError?: unknown }
+  | { type: 'parse_error'; message: string; path: string; originalError?: unknown }
+// ============================================================================
+// Enums
+// ============================================================================
 
 export enum MediaType {
     IMAGE = 'image',
@@ -133,6 +162,14 @@ export interface Media {
     last_viewed_at: number | null;
 }
 
+export interface FFprobeMetadata {
+    file_size: number;
+    height: number | null;
+    width: number | null;
+    duration: number | null;
+    codec: string | null;
+}
+
 export interface Tag {
     id: number;
     name: string;
@@ -200,19 +237,19 @@ export interface CollectionMedia {
 
 export interface CreateMediaInput {
     file_path: string;
-    original_path?: string | null;
+    original_path: string | null;
     md5: string;
     media_type: MediaType;
     mime_type: string;
     file_size: number;
-    width?: number | null;
-    height?: number | null;
-    duration?: number | null;
-    codec?: string | null;
-    rating?: Rating;
-    is_favorite?: boolean;
-    parent_id?: number | null;
-    source_url?: string | null;
+    width: number | null;
+    height: number | null;
+    duration: number | null;
+    codec: string | null;
+    rating: Rating;
+    is_favorite: boolean;
+    parent_id: number | null;
+    source_url: string | null;
 }
 
 export interface UpdateMediaInput {
@@ -239,15 +276,22 @@ export interface CreateCollectionInput {
     description?: string | null;
 }
 
+export interface MediaSearchResults {
+    media: Media[]
+    currentPage: number
+    totalPages: number
+    mediaPerPage: number
+}
+
+
 // Query types
 export interface SearchQuery {
     // Filters
     includeTags?: string[];
+    optionalTags?: string[];
     excludeTags?: string[];
     // Metatags
     rating?: Rating[];
-    minScore?: number;
-    maxScore?: number;
     minWidth?: number;
     maxWidth?: number;
     minHeight?: number;
@@ -287,4 +331,42 @@ export interface MediaWithTags extends Media {
 
 export interface TagWithCount extends Tag {
     media_count: number;
+}
+
+export interface UploadProgress {
+    current: number;
+    total: number;
+    fileName: string;
+}
+
+// Extend window with our API
+declare global {
+    interface Window {
+        api: {
+            media: {
+                getAll: (page: number) => Promise<Result<MediaSearchResults, DatabaseError>>;
+                getById: (id: number) => Promise<Result<Media, DatabaseError>>;
+                search: (query: string, page: number) => Promise<Result<MediaSearchResults, DatabaseError>>;
+                toggleFavorite: (id: number) => Promise<Result<Media, DatabaseError>>;
+                delete: (id: number) => Promise<Result<void, DatabaseError>>;
+            };
+            tags: {
+                getForMedia: (mediaId: number) => Promise<Result<Tag[], DatabaseError>>;
+                addToMedia: (mediaId: number, tagNames: string[]) => Promise<Result<void, DatabaseError>>;
+                removeFromMedia: (mediaId: number, tagId: number) => Promise<Result<void, DatabaseError>>;
+                search: (pattern: string) => Promise<Result<Tag[], DatabaseError>>;
+            };
+            upload: {
+                selectFiles: () => Promise<Result<string[], FileSystemError>>;
+                uploadFiles: (filePaths: string[]) => Promise<Result<void, DatabaseError | FileSystemError>>;
+                uploadFile: (stream: ReadableStream) => Promise<Result<void, DatabaseError | FileSystemError>>;
+            };
+            file: {
+                getThumbnailPath: (mediaId: number) => Promise<Result<string, FileSystemError>>;
+                getMediaPath: (mediaId: number) => Promise<Result<string, FileSystemError>>;
+            };
+            onUploadProgress: (callback: (progress: UploadProgress) => void) => void;
+            removeUploadProgressListener: () => void;
+        };
+    }
 }

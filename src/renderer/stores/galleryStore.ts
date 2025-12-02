@@ -1,10 +1,12 @@
 import {DEFAULT_PAGINATION_LIMIT} from "../../shared/constants.ts";
+import type {Media, DatabaseError} from "../../shared/types.ts";
+import {ref} from "vue";
 import {defineStore} from 'pinia';
 
 const useGalleryStore = defineStore('gallery', {
     state: () => ({
-        searchQuery: '',
-        searchResults: [],
+        searchQuery: ref<string>(''),
+        searchResults: [] as Media[],
         pageAmount: 0,
         pageIndex: 0,
     }),
@@ -16,7 +18,15 @@ const useGalleryStore = defineStore('gallery', {
     },
 
     actions: {
-
+        async search() {
+            const result = await window.api.media.search(this.searchQuery, this.pageIndex);
+            if (!result.ok) {
+                console.error(result.error);
+                return;
+            }
+            this.searchResults = result.value.media;
+            this.pageAmount = result.value.totalPages;
+        }
     }
 });
 

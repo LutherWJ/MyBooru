@@ -3,7 +3,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 contextBridge.exposeInMainWorld('api', {
   // Media operations
   media: {
-    getAll: () => ipcRenderer.invoke('media:getAll'),
+    getAll: () => ipcRenderer.invoke('media:getAll'), // Exists but not recommended for performance reasons
     getById: (id: number) => ipcRenderer.invoke('media:getById', id),
     search: (query: string) => ipcRenderer.invoke('media:search', query),
     toggleFavorite: (id: number) => ipcRenderer.invoke('media:toggleFavorite', id),
@@ -20,8 +20,8 @@ contextBridge.exposeInMainWorld('api', {
 
   // Upload operations
   upload: {
-    selectFiles: () => ipcRenderer.invoke('upload:selectFiles'),
-    uploadFiles: (filePaths: string[]) => ipcRenderer.invoke('upload:uploadFiles', filePaths),
+    uploadSingle: (stream: ReadableStream)  => ipcRenderer.invoke('upload:single', stream),
+    uploadBatch: (filePaths: string[]) => ipcRenderer.invoke('upload:batch', filePaths),
   },
 
   // File operations

@@ -12,7 +12,6 @@ const CREATE_TABLES_SQL = `
 CREATE TABLE IF NOT EXISTS media (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   file_path TEXT NOT NULL UNIQUE,
-  original_path TEXT,
   md5 TEXT NOT NULL UNIQUE,
   media_type TEXT NOT NULL CHECK(media_type IN ('image', 'video', 'audio')),
   mime_type TEXT NOT NULL,
@@ -27,8 +26,6 @@ CREATE TABLE IF NOT EXISTS media (
   -- Content ratings & engagement
   rating TEXT NOT NULL DEFAULT 'safe' CHECK(rating IN ('safe', 'questionable', 'explicit')),
   is_favorite INTEGER NOT NULL DEFAULT 0 CHECK(is_favorite IN (0, 1)),
-  score INTEGER NOT NULL DEFAULT 0,
-  view_count INTEGER NOT NULL DEFAULT 0,
 
   -- Tag counts (denormalized for performance)
   tag_count INTEGER NOT NULL DEFAULT 0,

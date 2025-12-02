@@ -1,5 +1,5 @@
 import { mkdir, chmod, rm } from 'fs/promises';
-import { existsSync } from 'fs';
+import { existsSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { $ } from 'bun';
 
@@ -90,16 +90,30 @@ async function main() {
     } else {
         await downloadAndExtract(source.url, 'ffmpeg bundle');
 
-        const ffmpegGlob = join(BINARIES_DIR, source.ffmpeg!);
-        const ffprobeGlob = join(BINARIES_DIR, source.ffprobe!);
+        // Find the extracted directory (e.g., ffmpeg-7.0.2-amd64-static)
+        const dirs = readdirSync(BINARIES_DIR, { withFileTypes: true })
+            .filter(dirent => dirent.isDirectory());
 
-        await $`mv ${ffmpegGlob} ${join(BINARIES_DIR, ffmpegName)}`.quiet();
-        await $`mv ${ffprobeGlob} ${join(BINARIES_DIR, ffprobeName)}`.quiet();
-
-        const dirs = await $`find ${BINARIES_DIR} -maxdepth 1 -type d ! -path ${BINARIES_DIR}`.text();
-        for (const dir of dirs.split('\n').filter(Boolean)) {
-            await rm(dir, { recursive: true });
+        if (dirs.length === 0) {
+            throw new Error('No extracted directory found after download');
         }
+
+        const extractedDir = join(BINARIES_DIR, dirs[0].name);
+        const ffmpegPath = join(extractedDir, 'ffmpeg');
+        const ffprobePath = join(extractedDir, 'ffprobe');
+
+        if (!existsSync(ffmpegPath)) {
+            throw new Error(`ffmpeg binary not found at ${ffmpegPath}`);
+        }
+        if (!existsSync(ffprobePath)) {
+            throw new Error(`ffprobe binary not found at ${ffprobePath}`);
+        }
+
+        await $`mv ${ffmpegPath} ${join(BINARIES_DIR, ffmpegName)}`.quiet();
+        await $`mv ${ffprobePath} ${join(BINARIES_DIR, ffprobeName)}`.quiet();
+
+        // Clean up extracted directory
+        await rm(extractedDir, { recursive: true });
     }
 
     if (!isWin) {

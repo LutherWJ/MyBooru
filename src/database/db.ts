@@ -1,55 +1,32 @@
-import Database from 'better-sqlite3';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
-import { mkdirSync, existsSync } from 'node:fs';
-import { DEFAULT_DB_CONFIG, type DatabaseConfig, type DatabaseError } from './types';
-import { Ok, Err, type Result} from "../shared/types.ts";
+import BetterSqlite3 from 'better-sqlite3';
+import { existsSync } from 'node:fs';
+import { DEFAULT_DB_CONFIG, type DatabaseConfig, type DatabaseError, type Database } from './types';
+import { Ok, Err, type Result} from "../shared/types";
 import { initializeSchema, configurePragmas } from './schema';
+import { expandPath, ensureParentDirectoryExists } from '../shared/utils';
 
-type DatabaseInstance = Database.Database;
-
-let dbInstance: DatabaseInstance | null = null;
-
-function expandPath(path: string): string {
-  if (path.startsWith('~/') || path === '~') {
-    return join(homedir(), path.slice(2));
-  }
-  return path;
-}
-
-function ensureDirectoryExists(filePath: string): Result<void, DatabaseError> {
-  try {
-    const dir = join(filePath, '..');
-    if (!existsSync(dir)) {
-      mkdirSync(dir, { recursive: true });
-    }
-    return Ok(undefined);
-  } catch (error) {
-    return Err({
-      type: 'database_error' as const,
-      message: 'Failed to create database directory',
-      originalError: error,
-    });
-  }
-}
+let dbInstance: Database | null = null;
 
 /**
  * Initialize database connection with schema and configuration
  */
 export function initializeDatabase(
   config: Partial<DatabaseConfig> = {}
-): Result<DatabaseInstance, DatabaseError> {
+): Result<Database, DatabaseError> {
   try {
     const fullConfig = { ...DEFAULT_DB_CONFIG, ...config };
     const dbPath = expandPath(fullConfig.path);
 
-    const dirResult = ensureDirectoryExists(dbPath);
+    const dirResult = ensureParentDirectoryExists(dbPath);
     if (!dirResult.ok) {
-      return Err(dirResult.error);
+      return Err({
+        type: 'database_error' as const,
+        message: 'Failed to create database directory',
+      });
     }
 
     // Create database connection
-    const db = new Database(dbPath);
+    const db = new BetterSqlite3(dbPath);
 
     // Configure pragmas
     const pragmaResult = configurePragmas(db, {
@@ -61,14 +38,14 @@ export function initializeDatabase(
 
     if (!pragmaResult.ok) {
       db.close();
-      return Err(pragmaResult.error);
+      return pragmaResult as Result<Database, DatabaseError>;
     }
 
     // Initialize schema
     const schemaResult = initializeSchema(db);
     if (!schemaResult.ok) {
       db.close();
-      return Err(schemaResult.error);
+      return schemaResult as Result<Database, DatabaseError>;
     }
 
     // Store instance for getDatabase()
@@ -88,7 +65,7 @@ export function initializeDatabase(
  * Get existing database instance or throw error
  * Use this after calling initializeDatabase()
  */
-export function getDatabase(): DatabaseInstance {
+export function getDatabase(): Database {
   if (!dbInstance) {
     throw new Error(
       'Database not initialized. Call initializeDatabase() first.'
@@ -121,7 +98,7 @@ export function closeDatabase(): Result<void, DatabaseError> {
  * Automatically rolls back on error
  */
 export function withTransaction<T>(
-  db: DatabaseInstance,
+  db: Database,
   fn: () => Result<T, DatabaseError>
 ): Result<T, DatabaseError> {
   try {

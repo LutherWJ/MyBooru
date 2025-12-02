@@ -36,3 +36,6 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # FFmpeg binaries (downloaded at install time)
 binaries/
+
+.claude
+CLAUDE.md

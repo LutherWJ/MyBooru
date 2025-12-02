@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { Ok, Err, type Result } from './../../shared/types'
+import type {Readable} from "node:stream";
+import {pipeline} from "node:stream/promises";
 
 export async function calculateFileMD5(filePath: string): Promise<Result<string, any>> {
   try {
@@ -17,4 +19,10 @@ export function calculateBufferMD5(buffer: ArrayBuffer): string {
   const hash = createHash('md5');
   hash.update(new Uint8Array(buffer));
   return hash.digest('hex');
+}
+
+export async function calculateStreamMD5(stream: Readable): Promise<string> {
+    const hash = createHash('md5');
+    await pipeline(stream, hash);
+    return hash.digest('hex');
 }

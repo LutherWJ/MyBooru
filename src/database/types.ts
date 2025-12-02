@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3'
+import { getDatabasePath } from '../shared/utils/paths';
 
 export interface DatabaseConfig {
   path: string;
@@ -9,7 +10,7 @@ export interface DatabaseConfig {
 }
 
 export const DEFAULT_DB_CONFIG: DatabaseConfig = {
-  path: '~/.mybooru/data.db',
+  path: getDatabasePath(),
   enableWAL: true,
   cacheSize: -64000, // 64MB
   tempStore: 'memory',
