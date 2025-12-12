@@ -17,10 +17,12 @@ func parseTag(p *parser) string {
 	startPos := p.pos
 	for p.pos < len(p.query) {
 		c := p.query[p.pos]
-		p.pos++
 		if isWhitespace(c) {
-			return string(p.query[startPos:p.pos])
+			result := string(p.query[startPos:p.pos])
+			p.pos++
+			return result
 		}
+		p.pos++
 	}
 	return string(p.query[startPos:p.pos])
 }
@@ -35,15 +37,17 @@ func parseQuery(query string) *models.SearchQuery {
 
 	for p.pos < len(p.query) {
 		c := p.query[p.pos]
-		p.pos++
 
 		if isWhitespace(c) {
+			p.pos++
 			continue
 		} else if c == '-' {
+			p.pos++
 			tag := parseTag(p)
 			searchQuery.ExcludeTags = append(searchQuery.ExcludeTags, tag)
 			continue
 		} else if c == '~' {
+			p.pos++
 			tag := parseTag(p)
 			searchQuery.OptionalTags = append(searchQuery.OptionalTags, tag)
 			continue

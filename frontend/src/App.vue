@@ -2,6 +2,7 @@
 import useTabStore from "@/stores/tabStore";
 import {watch, onMounted} from "vue";
 import TabBar from "@/components/TabBar.vue";
+import Upload from "@/views/Upload.vue";
 
 const tabStore = useTabStore();
 
@@ -12,5 +13,5 @@ onMounted(() => {
 
 <template>
   <TabBar/>
-  <router-view />
+  <Upload/>
 </template>

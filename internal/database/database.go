@@ -109,22 +109,22 @@ func (db *DB) GetStats() (*Stats, error) {
 
 	err := db.QueryRow("SELECT COUNT(*) FROM media").Scan(&stats.MediaCount)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get media count: %w", err)
+		return nil, WrapQueryError("media count", err)
 	}
 
 	err = db.QueryRow("SELECT COUNT(*) FROM tags").Scan(&stats.TagCount)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get tag count: %w", err)
+		return nil, WrapQueryError("tag count", err)
 	}
 
 	err = db.QueryRow("SELECT COUNT(*) FROM view_history").Scan(&stats.ViewHistoryCount)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get view history count: %w", err)
+		return nil, WrapQueryError("view history count", err)
 	}
 
 	err = db.QueryRow("SELECT COALESCE(SUM(file_size), 0) FROM media").Scan(&stats.TotalFileSize)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get total file size: %w", err)
+		return nil, WrapQueryError("total file size", err)
 	}
 
 	return stats, nil

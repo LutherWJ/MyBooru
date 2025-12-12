@@ -33,6 +33,15 @@ func GetCacheDir() (string, error) {
 	return filepath.Join(appDir, "cache"), nil
 }
 
+// GetTempDir returns the temp directory
+func GetTempDir() (string, error) {
+	appDir, err := GetAppDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(appDir, "tmp"), nil
+}
+
 // GetThumbnailDir returns the thumbnail cache directory
 func GetThumbnailDir(size int) (string, error) {
 	cacheDir, err := GetCacheDir()

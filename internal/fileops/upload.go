@@ -267,20 +267,39 @@ func ParseMediaType(ext string) (models.MediaType, error) {
 	return "", ErrUnsupportedFormat
 }
 
-func generateUUID() string {
+func generateUUID() (string, error) {
 	b := make([]byte, 8)
-	rand.Read(b)
-	return fmt.Sprintf("%d-%s", time.Now().UnixNano(), hex.EncodeToString(b))
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("failed to generate random bytes: %w", err)
+	}
+	return fmt.Sprintf("%d-%s", time.Now().UnixNano(), hex.EncodeToString(b)), nil
 }
 
 func StartUpload(totalSize int64) (sessionID string, err error) {
-	id := generateUUID()
-	tempPath := os.TempDir() + "/" + id + ".tmp"
+	id, err := generateUUID()
+	if err != nil {
+		fmt.Printf("ERROR: Failed to generate UUID: %v\n", err)
+		return "", err
+	}
+
+	tempDir, err := GetTempDir()
+	if err != nil {
+		fmt.Printf("ERROR: Failed to get temp dir: %v\n", err)
+		return "", err
+	}
+
+	if err := EnsureDirectoryExists(tempDir); err != nil {
+		fmt.Printf("ERROR: Failed to create temp dir: %v\n", err)
+		return "", err
+	}
+
+	tempPath := filepath.Join(tempDir, id+".tmp")
+	fmt.Printf("LOG: Starting upload session %s, size: %d bytes, temp path: %s\n", id, totalSize, tempPath)
 
 	tempFile, err := os.Create(tempPath)
 	if err != nil {
-		fmt.Printf("Failed to create temp file: %v\n", err)
-		return "", err
+		fmt.Printf("ERROR: Failed to create temp file: %v\n", err)
+		return "", fmt.Errorf("failed to create temp file: %w", err)
 	}
 
 	uploadSessionsMu.Lock()
@@ -294,20 +313,23 @@ func StartUpload(totalSize int64) (sessionID string, err error) {
 	}
 	uploadSessionsMu.Unlock()
 
+	fmt.Printf("LOG: Upload session %s created successfully\n", id)
 	return id, nil
 }
 
-func uploadChunk(sessionID string, data []byte) error {
+func UploadChunk(sessionID string, data []byte) error {
 	uploadSessionsMu.Lock()
 	defer uploadSessionsMu.Unlock()
 
 	session := uploadSessions[sessionID]
 	if session == nil {
+		fmt.Printf("ERROR: Session %s not found\n", sessionID)
 		return ErrSessionNotFound
 	}
 
 	n, err := session.TempFile.Write(data)
 	if err != nil {
+		fmt.Printf("ERROR: Failed to write chunk for session %s: %v\n", sessionID, err)
 		_ = session.TempFile.Close()
 		_ = os.Remove(session.TempFilePath)
 		delete(uploadSessions, sessionID)
@@ -320,47 +342,99 @@ func uploadChunk(sessionID string, data []byte) error {
 	return nil
 }
 
-func FinalizeUpload(db *database.DB, sessionID string, tags []string) (int64, error) {
-	uploadSessionsMu.Lock()
-	defer uploadSessionsMu.Unlock()
+func FinalizeUpload(db *database.DB, sessionID string, tagList string) (int64, error) {
+	fmt.Printf("LOG: Finalizing upload for session %s\n", sessionID)
 
+	uploadSessionsMu.Lock()
 	session := uploadSessions[sessionID]
+	uploadSessionsMu.Unlock()
+
 	if session == nil {
+		fmt.Printf("ERROR: Session %s not found during finalization\n", sessionID)
 		return 0, ErrSessionNotFound
 	}
 
 	_ = session.TempFile.Close()
+	fmt.Printf("LOG: Temp file closed, bytes written: %d\n", session.BytesWritten)
+
+	cleanupSession := func() {
+		uploadSessionsMu.Lock()
+		delete(uploadSessions, sessionID)
+		uploadSessionsMu.Unlock()
+	}
 
 	tmpCleanup := func() {
 		_ = os.Remove(session.TempFilePath)
-		delete(uploadSessions, sessionID)
+		cleanupSession()
 	}
 
+	fmt.Printf("LOG: Extracting metadata from %s\n", session.TempFilePath)
 	metadata, err := GetMultimediaMetadata(session.TempFilePath)
 	if err != nil {
+		fmt.Printf("ERROR: Failed to get metadata: %v\n", err)
 		tmpCleanup()
 		return 0, err
 	}
+	fmt.Printf("LOG: Metadata extracted - format: %s, codec: %s\n", metadata.Format, metadata.Codec)
 
 	ext := FormatToExtension(metadata.Format)
 	mediaType, err := ParseMediaType(ext)
 	if err != nil {
+		fmt.Printf("ERROR: Failed to parse media type for extension %s: %v\n", ext, err)
 		tmpCleanup()
 		return 0, err
 	}
+	fmt.Printf("LOG: Media type: %s, extension: %s\n", mediaType, ext)
 
 	md5Hash := hex.EncodeToString(session.Hash.Sum(nil))
+	fmt.Printf("LOG: MD5 hash: %s\n", md5Hash)
 
 	path, err := GetMediaFilePath(md5Hash, ext)
 	if err != nil {
+		fmt.Printf("ERROR: Failed to get media file path: %v\n", err)
+		tmpCleanup()
+		return 0, err
+	}
+	fmt.Printf("LOG: Target media path: %s\n", path)
+
+	if err := EnsureDirectoryExists(filepath.Dir(path)); err != nil {
+		fmt.Printf("ERROR: Failed to create directory %s: %v\n", filepath.Dir(path), err)
 		tmpCleanup()
 		return 0, err
 	}
 
+	fmt.Printf("LOG: Moving file from %s to %s\n", session.TempFilePath, path)
 	err = os.Rename(session.TempFilePath, path)
 	if err != nil {
-		tmpCleanup()
-		return 0, err
+		fmt.Printf("LOG: Rename failed (likely cross-device), falling back to copy: %v\n", err)
+		srcFile, err := os.Open(session.TempFilePath)
+		if err != nil {
+			fmt.Printf("ERROR: Failed to open temp file for copy: %v\n", err)
+			tmpCleanup()
+			return 0, err
+		}
+		defer srcFile.Close()
+
+		destFile, err := os.Create(path)
+		if err != nil {
+			fmt.Printf("ERROR: Failed to create destination file: %v\n", err)
+			tmpCleanup()
+			return 0, err
+		}
+		defer destFile.Close()
+
+		_, err = io.Copy(destFile, srcFile)
+		if err != nil {
+			fmt.Printf("ERROR: Failed to copy file: %v\n", err)
+			_ = os.Remove(path)
+			tmpCleanup()
+			return 0, err
+		}
+
+		_ = os.Remove(session.TempFilePath)
+		fmt.Printf("LOG: File copied successfully\n")
+	} else {
+		fmt.Printf("LOG: File moved successfully\n")
 	}
 
 	media := &models.CreateMediaInput{
@@ -376,33 +450,49 @@ func FinalizeUpload(db *database.DB, sessionID string, tags []string) (int64, er
 		Rating:    models.RatingSafe,
 	}
 
+	fmt.Printf("LOG: Creating database transaction\n")
 	tx, err := db.Begin()
+	if err != nil {
+		fmt.Printf("ERROR: Failed to begin transaction: %v\n", err)
+		_ = os.Remove(path)
+		cleanupSession()
+		return 0, fmt.Errorf("failed to begin transaction: %w", err)
+	}
 
 	dbCleanup := func() {
-		_ = os.Remove(path)
 		_ = tx.Rollback()
-		delete(uploadSessions, sessionID)
+		_ = os.Remove(path)
+		cleanupSession()
 	}
 
-	if err != nil {
-		dbCleanup()
-		return 0, err
-	}
-
+	fmt.Printf("LOG: Creating media record in database\n")
 	id, err := db.CreateMedia(media)
 	if err != nil {
+		fmt.Printf("ERROR: Failed to create media record: %v\n", err)
 		dbCleanup()
 		return 0, err
 	}
+	fmt.Printf("LOG: Media record created with ID: %d\n", id)
 
-	// TODO: add tags to post
+	tags := strings.Split(tagList, " ")
+	if len(tags) > 0 && tagList != "" {
+		fmt.Printf("LOG: Adding %d tags: %v\n", len(tags), tags)
+		if err := database.AddTagsToMediaInTx(tx, id, tags); err != nil {
+			fmt.Printf("ERROR: Failed to add tags: %v\n", err)
+			dbCleanup()
+			return 0, fmt.Errorf("failed to add tags: %w", err)
+		}
+	}
 
+	fmt.Printf("LOG: Committing transaction\n")
 	err = tx.Commit()
 	if err != nil {
+		fmt.Printf("ERROR: Failed to commit transaction: %v\n", err)
 		dbCleanup()
 		return 0, err
 	}
 
-	delete(uploadSessions, sessionID)
+	cleanupSession()
+	fmt.Printf("LOG: Upload finalized successfully, media ID: %d\n", id)
 	return id, nil
 }
