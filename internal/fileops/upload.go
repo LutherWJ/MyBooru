@@ -474,7 +474,7 @@ func FinalizeUpload(db *database.DB, sessionID string, tagList string) (int64, e
 	}
 	fmt.Printf("LOG: Media record created with ID: %d\n", id)
 
-	tags := strings.Split(tagList, " ")
+	tags := ParseTags(tagList)
 	if len(tags) > 0 && tagList != "" {
 		fmt.Printf("LOG: Adding %d tags: %v\n", len(tags), tags)
 		if err := database.AddTagsToMediaInTx(tx, id, tags); err != nil {
@@ -495,4 +495,9 @@ func FinalizeUpload(db *database.DB, sessionID string, tagList string) (int64, e
 	cleanupSession()
 	fmt.Printf("LOG: Upload finalized successfully, media ID: %d\n", id)
 	return id, nil
+}
+
+func TagPost(db *database.DB, mediaID int64, tagInput string) error {
+	tags := ParseTags(tagInput)
+	return db.AddTagsToMediaTx(mediaID, tags)
 }

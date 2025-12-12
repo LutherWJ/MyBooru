@@ -139,22 +139,22 @@ func (db *DB) GetTagsForMedia(mediaID int64) ([]*models.Tag, error) {
 }
 
 // addTagsToMediaWithTx is the core logic for adding tags within an existing transaction
-func addTagsToMediaWithTx(tx *sql.Tx, mediaID int64, tagNames []string) error {
+func addTagsToMediaWithTx(tx *sql.Tx, mediaID int64, tags []models.CreateTagInput) error {
 	now := time.Now().Unix()
 
-	for _, tagName := range tagNames {
+	for _, tag := range tags {
 		// Get or create tag
 		var tagID int64
-		err := tx.QueryRow("SELECT id FROM tags WHERE name = ? COLLATE NOCASE", tagName).Scan(&tagID)
+		err := tx.QueryRow("SELECT id FROM tags WHERE name = ? COLLATE NOCASE", tag.Name).Scan(&tagID)
 		if err == sql.ErrNoRows {
 			result, err := tx.Exec("INSERT INTO tags (name, category, created_at) VALUES (?, ?, ?)",
-				tagName, models.TagCategoryGeneral, now)
+				tag.Name, tag.Category, now)
 			if err != nil {
 				if !strings.Contains(err.Error(), "UNIQUE constraint failed") {
-					return fmt.Errorf("failed to create tag %s: %w", tagName, err)
+					return fmt.Errorf("failed to create tag %s: %w", tag.Name, err)
 				}
 				// Race condition: tag was created by another transaction, query again
-				err = tx.QueryRow("SELECT id FROM tags WHERE name = ? COLLATE NOCASE", tagName).Scan(&tagID)
+				err = tx.QueryRow("SELECT id FROM tags WHERE name = ? COLLATE NOCASE", tag.Name).Scan(&tagID)
 				if err != nil {
 					return fmt.Errorf("failed to get tag ID after creation: %w", err)
 				}
@@ -172,7 +172,7 @@ func addTagsToMediaWithTx(tx *sql.Tx, mediaID int64, tagNames []string) error {
 		_, err = tx.Exec("INSERT OR IGNORE INTO media_tags (media_id, tag_id, created_at) VALUES (?, ?, ?)",
 			mediaID, tagID, now)
 		if err != nil {
-			return fmt.Errorf("failed to add tag %s to media: %w", tagName, err)
+			return fmt.Errorf("failed to add tag %s to media: %w", tag.Name, err)
 		}
 	}
 
@@ -180,14 +180,14 @@ func addTagsToMediaWithTx(tx *sql.Tx, mediaID int64, tagNames []string) error {
 }
 
 // AddTagsToMediaTx associates multiple tags with a media item
-func (db *DB) AddTagsToMediaTx(mediaID int64, tagNames []string) error {
+func (db *DB) AddTagsToMediaTx(mediaID int64, tags []models.CreateTagInput) error {
 	tx, err := db.Begin()
 	if err != nil {
 		return WrapTransactionBeginError(err)
 	}
 	defer tx.Rollback()
 
-	if err := addTagsToMediaWithTx(tx, mediaID, tagNames); err != nil {
+	if err := addTagsToMediaWithTx(tx, mediaID, tags); err != nil {
 		return err
 	}
 
@@ -199,8 +199,8 @@ func (db *DB) AddTagsToMediaTx(mediaID int64, tagNames []string) error {
 }
 
 // AddTagsToMediaInTx adds tags to media within an existing transaction (for external callers)
-func AddTagsToMediaInTx(tx *sql.Tx, mediaID int64, tagNames []string) error {
-	return addTagsToMediaWithTx(tx, mediaID, tagNames)
+func AddTagsToMediaInTx(tx *sql.Tx, mediaID int64, tags []models.CreateTagInput) error {
+	return addTagsToMediaWithTx(tx, mediaID, tags)
 }
 
 // RemoveTagFromMedia removes a tag association from a media item
