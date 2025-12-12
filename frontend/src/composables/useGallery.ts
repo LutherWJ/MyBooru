@@ -1,13 +1,13 @@
 import {computed, ref} from "vue";
-import type {Media} from "../../shared/types.ts";
-import { GetAllMedia } from "../../wailsjs/go/app/App";
+import {models} from "../../wailsjs/go/app/App";
+
 
 const ITEMS_PER_PAGE = 50;
 
 const useGallery = () => {
     let activeQuery = '';
     const searchBox = ref<string>('');
-    const searchResults = ref<Media[]>([]);
+    const searchResults = ref<models.Media[]>([]);
     const pageAmount = ref<number>(0);
     const pageIndex = ref<number>(0);
 
@@ -18,9 +18,8 @@ const useGallery = () => {
     const search = async () => {
         activeQuery = searchBox.value;
         try {
-            // TODO: Implement search query parser and use SearchMedia
-            // For now, just get all media
-            const media = await GetAllMedia(0, ITEMS_PER_PAGE);
+            // @ts-expect-error TODO: doesn't exist
+            const media = await SearchMedia(activeQuery, 0, ITEMS_PER_PAGE);
             pageIndex.value = 0;
             searchResults.value = media;
             // TODO: Get total count to calculate pageAmount
@@ -39,7 +38,8 @@ const useGallery = () => {
 
         try {
             const offset = page * ITEMS_PER_PAGE;
-            const media = await GetAllMedia(offset, ITEMS_PER_PAGE);
+            // @ts-expect-error doesn't exist
+            const media = await SearchMedia(activeQuery, offset, ITEMS_PER_PAGE);
             searchResults.value = media;
         } catch (error) {
             console.error('Failed to change page:', error);

@@ -2,17 +2,11 @@ package database
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"mybooru/internal/models"
-)
-
-var (
-	ErrNotFound            = errors.New("not found")
-	ErrConstraintViolation = errors.New("constraint violation")
 )
 
 // GetMediaByID retrieves a single media item by ID
@@ -23,7 +17,8 @@ func (db *DB) GetMediaByID(id int64) (*models.Media, error) {
 	err := db.QueryRow(query, id).Scan(
 		&media.ID, &media.FilePath, &media.MD5, &media.MediaType, &media.MimeType, &media.FileSize,
 		&media.Width, &media.Height, &media.Duration, &media.Codec, &media.Rating, &media.IsFavorite,
-		&media.TagCount, &media.TagCountGeneral, &media.TagCountMetadata, &media.TagCountArtist,
+		&media.TagCount, &media.TagCountGeneral, &media.TagCountArtist, &media.TagCountCopyright,
+		&media.TagCountCharacter, &media.TagCountMetadata,
 		&media.ParentID, &media.HasChildren, &media.SourceURL, &media.CreatedAt, &media.UpdatedAt, &media.LastViewedAt,
 	)
 
@@ -31,7 +26,7 @@ func (db *DB) GetMediaByID(id int64) (*models.Media, error) {
 		return nil, ErrNotFound
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to get media by ID: %w", err)
+		return nil, WrapGetByIDError("media", err)
 	}
 
 	return media, nil
@@ -43,7 +38,7 @@ func (db *DB) GetAllMedia() ([]*models.Media, error) {
 
 	rows, err := db.Query(query)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query media: %w", err)
+		return nil, WrapQueryError("media", err)
 	}
 	defer rows.Close()
 
@@ -53,17 +48,18 @@ func (db *DB) GetAllMedia() ([]*models.Media, error) {
 		err := rows.Scan(
 			&media.ID, &media.FilePath, &media.MD5, &media.MediaType, &media.MimeType, &media.FileSize,
 			&media.Width, &media.Height, &media.Duration, &media.Codec, &media.Rating, &media.IsFavorite,
-			&media.TagCount, &media.TagCountGeneral, &media.TagCountMetadata, &media.TagCountArtist,
+			&media.TagCount, &media.TagCountGeneral, &media.TagCountArtist, &media.TagCountCopyright,
+			&media.TagCountCharacter, &media.TagCountMetadata,
 			&media.ParentID, &media.HasChildren, &media.SourceURL, &media.CreatedAt, &media.UpdatedAt, &media.LastViewedAt,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to scan media row: %w", err)
+			return nil, WrapScanError("media", err)
 		}
 		mediaList = append(mediaList, media)
 	}
 
 	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating media rows: %w", err)
+		return nil, WrapIterationError("media", err)
 	}
 
 	return mediaList, nil
@@ -92,12 +88,12 @@ func (db *DB) CreateMedia(input *models.CreateMediaInput) (int64, error) {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
 			return 0, fmt.Errorf("%w: media with MD5 %s already exists", ErrConstraintViolation, input.MD5)
 		}
-		return 0, fmt.Errorf("failed to create media: %w", err)
+		return 0, WrapCreateError("media", err)
 	}
 
 	id, err := result.LastInsertId()
 	if err != nil {
-		return 0, fmt.Errorf("failed to get last insert ID: %w", err)
+		return 0, WrapLastInsertIDError(err)
 	}
 
 	return id, nil
@@ -142,12 +138,12 @@ func (db *DB) UpdateMedia(id int64, input *models.UpdateMediaInput) error {
 
 	result, err := db.Exec(query, args...)
 	if err != nil {
-		return fmt.Errorf("failed to update media: %w", err)
+		return WrapUpdateError("media", err)
 	}
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
+		return WrapRowsAffectedError(err)
 	}
 
 	if rowsAffected == 0 {
@@ -161,12 +157,12 @@ func (db *DB) UpdateMedia(id int64, input *models.UpdateMediaInput) error {
 func (db *DB) DeleteMedia(id int64) error {
 	result, err := db.Exec("DELETE FROM media WHERE id = ?", id)
 	if err != nil {
-		return fmt.Errorf("failed to delete media: %w", err)
+		return WrapDeleteError("media", err)
 	}
 
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
+		return WrapRowsAffectedError(err)
 	}
 
 	if rowsAffected == 0 {
@@ -180,7 +176,7 @@ func (db *DB) DeleteMedia(id int64) error {
 func (db *DB) ToggleFavorite(id int64) (*models.Media, error) {
 	tx, err := db.Begin()
 	if err != nil {
-		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+		return nil, WrapTransactionBeginError(err)
 	}
 	defer tx.Rollback()
 
@@ -190,7 +186,7 @@ func (db *DB) ToggleFavorite(id int64) (*models.Media, error) {
 		return nil, ErrNotFound
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to get current favorite status: %w", err)
+		return nil, WrapQueryError("media favorite status", err)
 	}
 
 	newFavorite := !isFavorite
@@ -202,11 +198,11 @@ func (db *DB) ToggleFavorite(id int64) (*models.Media, error) {
 	_, err = tx.Exec("UPDATE media SET is_favorite = ?, updated_at = ? WHERE id = ?",
 		newFavoriteInt, time.Now().Unix(), id)
 	if err != nil {
-		return nil, fmt.Errorf("failed to toggle favorite: %w", err)
+		return nil, WrapExecError("toggle favorite", err)
 	}
 
 	if err = tx.Commit(); err != nil {
-		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+		return nil, WrapTransactionCommitError(err)
 	}
 
 	return db.GetMediaByID(id)

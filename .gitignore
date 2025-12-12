@@ -38,5 +38,12 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 # FFmpeg binaries (downloaded at install time)
 binaries/
 
+# sloppa
 .claude
 CLAUDE.md
+GEMINI.md
+
+# random MD files
+HYDRUS_ANALYSIS.md
+TESTING_GUIDE.md
+TESTING_QUICKSTART.md

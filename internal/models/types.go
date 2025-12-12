@@ -27,35 +27,39 @@ const (
 type TagCategory int
 
 const (
-	TagCategoryGeneral  TagCategory = 0
-	TagCategoryMetadata TagCategory = 1
-	TagCategoryArtist   TagCategory = 2
+	TagCategoryGeneral   TagCategory = 0
+	TagCategoryArtist    TagCategory = 1
+	TagCategoryCopyright TagCategory = 2
+	TagCategoryCharacter TagCategory = 3
+	TagCategoryMetadata  TagCategory = 4
 )
 
 // Media represents a media file in the database
 type Media struct {
-	ID               int64
-	FilePath         string
-	MD5              string
-	MediaType        MediaType
-	MimeType         string
-	FileSize         int64
-	Width            sql.NullInt64
-	Height           sql.NullInt64
-	Duration         sql.NullFloat64
-	Codec            sql.NullString
-	Rating           Rating
-	IsFavorite       bool
-	TagCount         int
-	TagCountGeneral  int
-	TagCountMetadata int
-	TagCountArtist   int
-	ParentID         sql.NullInt64
-	HasChildren      bool
-	SourceURL        sql.NullString
-	CreatedAt        int64
-	UpdatedAt        int64
-	LastViewedAt     sql.NullInt64
+	ID                int64
+	FilePath          string
+	MD5               string
+	MediaType         MediaType
+	MimeType          string
+	FileSize          int64
+	Width             sql.NullInt64
+	Height            sql.NullInt64
+	Duration          sql.NullFloat64
+	Codec             sql.NullString
+	Rating            Rating
+	IsFavorite        bool
+	TagCount          int
+	TagCountGeneral   int
+	TagCountArtist    int
+	TagCountCopyright int
+	TagCountCharacter int
+	TagCountMetadata  int
+	ParentID          sql.NullInt64
+	HasChildren       bool
+	SourceURL         sql.NullString
+	CreatedAt         int64
+	UpdatedAt         int64
+	LastViewedAt      sql.NullInt64
 }
 
 // Tag represents a tag in the database

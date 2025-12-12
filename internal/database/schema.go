@@ -26,8 +26,10 @@ CREATE TABLE IF NOT EXISTS media (
   -- Tag counts (denormalized for performance)
   tag_count INTEGER NOT NULL DEFAULT 0,
   tag_count_general INTEGER NOT NULL DEFAULT 0,
-  tag_count_metadata INTEGER NOT NULL DEFAULT 0,
   tag_count_artist INTEGER NOT NULL DEFAULT 0,
+  tag_count_copyright INTEGER NOT NULL DEFAULT 0,
+  tag_count_character INTEGER NOT NULL DEFAULT 0,
+  tag_count_metadata INTEGER NOT NULL DEFAULT 0,
 
   -- Relationships
   parent_id INTEGER REFERENCES media(id) ON DELETE SET NULL,
@@ -43,7 +45,8 @@ CREATE TABLE IF NOT EXISTS media (
 CREATE TABLE IF NOT EXISTS tags (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL UNIQUE COLLATE NOCASE,
-  category INTEGER NOT NULL DEFAULT 0 CHECK(category IN (0, 1, 2)),
+  -- Category: 0=general, 1=artist, 2=copyright, 3=character, 4=metadata (matches Danbooru)
+  category INTEGER NOT NULL DEFAULT 0 CHECK(category IN (0, 1, 2, 3, 4)),
   usage_count INTEGER NOT NULL DEFAULT 0,
   created_at INTEGER NOT NULL
 );
@@ -156,23 +159,18 @@ BEGIN
 
   UPDATE media
   SET tag_count = tag_count + 1,
+      tag_count_general = tag_count_general +
+        CASE WHEN (SELECT category FROM tags WHERE id = NEW.tag_id) = 0 THEN 1 ELSE 0 END,
+      tag_count_artist = tag_count_artist +
+        CASE WHEN (SELECT category FROM tags WHERE id = NEW.tag_id) = 1 THEN 1 ELSE 0 END,
+      tag_count_copyright = tag_count_copyright +
+        CASE WHEN (SELECT category FROM tags WHERE id = NEW.tag_id) = 2 THEN 1 ELSE 0 END,
+      tag_count_character = tag_count_character +
+        CASE WHEN (SELECT category FROM tags WHERE id = NEW.tag_id) = 3 THEN 1 ELSE 0 END,
+      tag_count_metadata = tag_count_metadata +
+        CASE WHEN (SELECT category FROM tags WHERE id = NEW.tag_id) = 4 THEN 1 ELSE 0 END,
       updated_at = unixepoch()
   WHERE id = NEW.media_id;
-
-  UPDATE media
-  SET tag_count_general = tag_count_general + 1
-  WHERE id = NEW.media_id
-    AND (SELECT category FROM tags WHERE id = NEW.tag_id) = 0;
-
-  UPDATE media
-  SET tag_count_metadata = tag_count_metadata + 1
-  WHERE id = NEW.media_id
-    AND (SELECT category FROM tags WHERE id = NEW.tag_id) = 1;
-
-  UPDATE media
-  SET tag_count_artist = tag_count_artist + 1
-  WHERE id = NEW.media_id
-    AND (SELECT category FROM tags WHERE id = NEW.tag_id) = 2;
 END;
 
 CREATE TRIGGER IF NOT EXISTS trg_media_tags_delete
@@ -184,23 +182,18 @@ BEGIN
 
   UPDATE media
   SET tag_count = tag_count - 1,
+      tag_count_general = tag_count_general -
+        CASE WHEN (SELECT category FROM tags WHERE id = OLD.tag_id) = 0 THEN 1 ELSE 0 END,
+      tag_count_artist = tag_count_artist -
+        CASE WHEN (SELECT category FROM tags WHERE id = OLD.tag_id) = 1 THEN 1 ELSE 0 END,
+      tag_count_copyright = tag_count_copyright -
+        CASE WHEN (SELECT category FROM tags WHERE id = OLD.tag_id) = 2 THEN 1 ELSE 0 END,
+      tag_count_character = tag_count_character -
+        CASE WHEN (SELECT category FROM tags WHERE id = OLD.tag_id) = 3 THEN 1 ELSE 0 END,
+      tag_count_metadata = tag_count_metadata -
+        CASE WHEN (SELECT category FROM tags WHERE id = OLD.tag_id) = 4 THEN 1 ELSE 0 END,
       updated_at = unixepoch()
   WHERE id = OLD.media_id;
-
-  UPDATE media
-  SET tag_count_general = tag_count_general - 1
-  WHERE id = OLD.media_id
-    AND (SELECT category FROM tags WHERE id = OLD.tag_id) = 0;
-
-  UPDATE media
-  SET tag_count_metadata = tag_count_metadata - 1
-  WHERE id = OLD.media_id
-    AND (SELECT category FROM tags WHERE id = OLD.tag_id) = 1;
-
-  UPDATE media
-  SET tag_count_artist = tag_count_artist - 1
-  WHERE id = OLD.media_id
-    AND (SELECT category FROM tags WHERE id = OLD.tag_id) = 2;
 END;
 
 CREATE TRIGGER IF NOT EXISTS trg_media_parent_insert
@@ -228,14 +221,5 @@ BEGIN
   SET last_viewed_at = NEW.viewed_at,
       updated_at = unixepoch()
   WHERE id = NEW.media_id;
-END;
-
-CREATE TRIGGER IF NOT EXISTS trg_media_update_timestamp
-AFTER UPDATE ON media
-FOR EACH ROW
-BEGIN
-  UPDATE media
-  SET updated_at = unixepoch()
-  WHERE id = NEW.id;
 END;
 `
