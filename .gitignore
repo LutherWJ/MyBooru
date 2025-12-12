@@ -47,3 +47,15 @@ GEMINI.md
 HYDRUS_ANALYSIS.md
 TESTING_GUIDE.md
 TESTING_QUICKSTART.md
+
+# Wails build artifacts
+build/bin/
+*.syso
+wails_build.log
+mybooru
+mybooru.exe
+
+# Test coverage
+coverage.out
+coverage.html
+frontend/coverage/
