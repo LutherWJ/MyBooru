@@ -1,85 +1,128 @@
-# MyBooru
+# MyBooru - Wails Version
 
-A personal image gallery built with Electron, Vue 3, TypeScript, and Tailwind CSS, powered by Bun.
+A personal media gallery application built with Go (Wails) and Vue 3.
+
+## Migration from Electron
+
+This is a port of MyBooru from Electron to Wails, maintaining the same database schema and core functionality while leveraging Go's performance and smaller binary size.
 
 ## Tech Stack
 
-- **Electron** - Desktop application framework
-- **Vue 3** - Progressive JavaScript framework
-- **TypeScript** - Type-safe JavaScript
-- **Tailwind CSS** - Utility-first CSS framework
-- **Bun** - Fast all-in-one JavaScript runtime
-- **Vite** - Next-generation frontend tooling
+**Backend:**
+- Go 1.23
+- Wails v2 (desktop framework)
+- SQLite with mattn/go-sqlite3
+- FFmpeg/FFprobe for media processing
+
+**Frontend:**
+- Vue 3 + Composition API
+- Pinia for state management
+- Vue Router 4
+- Tailwind CSS 4
+
+## Prerequisites
+
+- Go 1.23 or later
+- Node.js 18+ (for frontend build)
+- FFmpeg and FFprobe (for media processing)
+- Linux: `build-essential libgtk-3-dev libwebkit2gtk-4.1-dev`
+
+### Installing Prerequisites on Linux Mint
+
+```bash
+# Install system dependencies
+sudo apt install build-essential libgtk-3-dev libwebkit2gtk-4.1-dev ffmpeg
+```
 
 ## Project Structure
 
 ```
-MyBooru/
-├── src/
-│   ├── main/          # Electron main process
-│   │   ├── main.ts    # Main entry point
-│   │   └── preload.ts # Preload script for IPC
-│   └── renderer/      # Vue frontend
-│       ├── App.vue    # Root Vue component
-│       ├── main.ts    # Vue entry point
-│       └── style.css  # Global styles with Tailwind
-├── public/            # Static assets
-├── dist/              # Build output
-└── index.html         # HTML template
+MyBooru-Wails/
+├── main.go                 # Application entry point
+├── go.mod                  # Go dependencies
+├── wails.json              # Wails configuration
+├── internal/
+│   ├── app/                # Wails app bindings (replaces Electron IPC)
+│   │   └── app.go          # API methods exposed to frontend
+│   ├── database/           # Database layer
+│   │   ├── database.go     # DB initialization and setup
+│   │   ├── schema.go       # SQL schema definitions
+│   │   ├── media.go        # Media CRUD operations
+│   │   └── tags.go         # Tag operations
+│   ├── models/             # Data models and types
+│   │   └── types.go        # Structs matching database schema
+│   └── fileops/            # File operations
+│       ├── paths.go        # Path utilities
+│       └── upload.go       # Upload and FFmpeg integration
+└── frontend/               # Vue 3 application (to be copied from Electron version)
 ```
 
-## Getting Started
+## Database
 
-### Install dependencies
+The application uses SQLite with the same schema as the Electron version:
+
+- **Storage:** `~/.mybooru/data.db`
+- **Media files:** `~/.mybooru/media/{hash[:2]}/{hash}.{ext}`
+- **Thumbnails:** `~/.mybooru/cache/thumbnails/300/{hash[:2]}/{hash}.jpg`
+- **WAL mode** enabled for concurrent access
+
+## Development
 
 ```bash
-bun install
+# Install Go dependencies
+go mod tidy
+
+# Install frontend dependencies
+cd frontend && npm install && cd ..
+
+# Run in development mode (this will auto-generate TypeScript bindings)
+wails dev
+
+# Build for production
+wails build
 ```
 
-### Development
+## API Reference
 
-Run the app in development mode with hot reload:
+The Go backend exposes methods to the frontend via Wails bindings. TypeScript bindings are auto-generated in `frontend/wailsjs/`.
 
-```bash
-bun run dev
-```
+### Media Operations
+- `GetAllMedia(page, limit int)` - Get paginated media
+- `GetMediaByID(id int64)` - Get single media item
+- `SearchMedia(query)` - Complex search with filters
+- `ToggleFavorite(id int64)` - Toggle favorite status
+- `DeleteMedia(id int64)` - Delete media item
 
-This will start the Vite dev server and launch Electron.
+### Tag Operations
+- `GetTagsForMedia(mediaID int64)` - Get all tags for media
+- `AddTagsToMedia(mediaID int64, tagNames []string)` - Add tags
+- `RemoveTagFromMedia(mediaID, tagID int64)` - Remove tag
+- `SearchTags(pattern string, limit int)` - Search tags
 
-### Build
+## Migration Notes
 
-Build the application for production:
+### Changes from Electron
+1. IPC replaced with Wails bindings
+2. Result<T,E> pattern → idiomatic Go (value, error)
+3. better-sqlite3 → mattn/go-sqlite3
+4. Node child_process → Go os/exec for FFmpeg
 
-```bash
-bun run build
-```
+### Database Compatibility
+You can use the same `~/.mybooru/data.db` from the Electron version - schemas are 100% compatible.
 
-### Package
+## Status
 
-Create a distributable package:
+### ✅ Completed
+- Backend database layer fully ported to Go
+- Vue 3 frontend copied from Electron version
+- Basic API calls updated to use Wails bindings
+- Build configuration ready
 
-```bash
-# Package without installer
-bun run pack
-
-# Create installer
-bun run dist
-```
-
-## Available Scripts
-
-- `bun run dev` - Start development server and Electron app
-- `bun run dev:renderer` - Start only Vite dev server
-- `bun run dev:electron` - Build and start only Electron
-- `bun run build` - Build both renderer and main process
-- `bun run build:renderer` - Build Vue app with Vite
-- `bun run build:electron` - Compile TypeScript for Electron
-- `bun run pack` - Package app without creating installer
-- `bun run dist` - Build and create distributable installer
-
-## Development Notes
-
-- The renderer process runs on `http://localhost:5173` during development
-- Hot module replacement is enabled for Vue components
-- DevTools are automatically opened in development mode
-- Context isolation is enabled for security
+### 🔨 TODO
+- [ ] Test the app with `wails dev`
+- [ ] Implement search query parser (TypeScript → Go)
+- [ ] Implement file upload UI
+- [ ] Add upload progress tracking
+- [ ] Add keyboard navigation
+- [ ] Implement tab system
+- [ ] Port remaining Electron API calls as needed
