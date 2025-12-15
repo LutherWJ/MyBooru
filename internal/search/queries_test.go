@@ -1,4 +1,4 @@
-package database
+package search
 
 import (
 	"reflect"
@@ -116,7 +116,7 @@ func TestParseQuery(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := parseQuery(tt.input)
+			result := ParseQuery(tt.input)
 
 			if !reflect.DeepEqual(result.IncludeTags, tt.expected.IncludeTags) {
 				t.Errorf("IncludeTags mismatch:\ngot:  %v\nwant: %v", result.IncludeTags, tt.expected.IncludeTags)

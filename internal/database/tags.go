@@ -225,7 +225,7 @@ func (db *DB) RemoveTagFromMedia(mediaID, tagID int64) error {
 // GetMediaByTag retrieves all media items with a specific tag
 func (db *DB) GetMediaByTag(tagID int64, limit, offset int) ([]*models.Media, error) {
 	query := `
-		SELECT m.id, m.file_path, m.md5, m.media_type, m.mime_type, m.file_size,
+		SELECT m.id, m.md5, m.file_ext, m.media_type, m.mime_type, m.file_size,
 		       m.width, m.height, m.duration, m.codec, m.rating, m.is_favorite,
 		       m.tag_count, m.tag_count_general, m.tag_count_artist, m.tag_count_copyright,
 		       m.tag_count_character, m.tag_count_metadata,
@@ -247,7 +247,7 @@ func (db *DB) GetMediaByTag(tagID int64, limit, offset int) ([]*models.Media, er
 	for rows.Next() {
 		media := &models.Media{}
 		err := rows.Scan(
-			&media.ID, &media.FilePath, &media.MD5, &media.MediaType, &media.MimeType, &media.FileSize,
+			&media.ID, &media.MD5, &media.FileExt, &media.MediaType, &media.MimeType, &media.FileSize,
 			&media.Width, &media.Height, &media.Duration, &media.Codec, &media.Rating, &media.IsFavorite,
 			&media.TagCount, &media.TagCountGeneral, &media.TagCountArtist, &media.TagCountCopyright,
 			&media.TagCountCharacter, &media.TagCountMetadata,

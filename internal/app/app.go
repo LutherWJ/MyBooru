@@ -7,6 +7,7 @@ import (
 	"mybooru/internal/database"
 	"mybooru/internal/fileops"
 	"mybooru/internal/models"
+	"mybooru/internal/search"
 )
 
 type App struct {
@@ -48,4 +49,21 @@ func (a *App) FinalizeUpload(sessionID string, tags string) (int64, error) {
 // GetMediaByID retrieves a single media item by ID
 func (a *App) GetMediaByID(id int64) (*models.Media, error) {
 	return a.db.GetMediaByID(id)
+}
+
+func (a *App) SearchMedia(searchString string, limit int, offset int, beforeID *int64, afterID *int64) (*models.SearchResult, error) {
+	query := search.ParseQuery(searchString)
+	query.Limit = limit
+	query.Offset = offset
+	query.BeforeID = beforeID
+	query.AfterID = afterID
+	return a.db.GetMediaBySearch(query)
+}
+
+func (a *App) GetMediaPathByMD5(md5 string, ext string) (string, error) {
+	return fileops.GetMediaFilePath(md5, ext)
+}
+
+func (a *App) GetThumbnailPaths(md5 string) (string, error) {
+	return fileops.GetThumbnailPath(md5, fileops.DEFAULT_THUMBNAIL_SIZE)
 }

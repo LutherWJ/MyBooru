@@ -7,6 +7,12 @@ export function FinalizeUpload(arg1:string,arg2:string):Promise<number>;
 
 export function GetMediaByID(arg1:number):Promise<models.Media>;
 
+export function GetMediaPathByMD5(arg1:string,arg2:string):Promise<string>;
+
+export function GetThumbnailPaths(arg1:string):Promise<string>;
+
+export function SearchMedia(arg1:string,arg2:number,arg3:number,arg4:any,arg5:any):Promise<models.SearchResult>;
+
 export function Shutdown(arg1:context.Context):Promise<void>;
 
 export function StartUpload(arg1:number):Promise<string>;

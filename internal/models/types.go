@@ -37,8 +37,8 @@ const (
 // Media represents a media file in the database
 type Media struct {
 	ID                int64
-	FilePath          string
 	MD5               string
+	FileExt           string
 	MediaType         MediaType
 	MimeType          string
 	FileSize          int64
@@ -138,8 +138,8 @@ type CollectionMedia struct {
 
 // CreateMediaInput represents input for creating new media
 type CreateMediaInput struct {
-	FilePath  string
 	MD5       string
+	FileExt   string
 	MediaType MediaType
 	MimeType  string
 	FileSize  int64
@@ -185,8 +185,14 @@ type SearchQuery struct {
 	CreatedAfter  *time.Time
 	CreatedBefore *time.Time
 	MediaTypes    []MediaType
-	Limit         int
-	Offset        int
+
+	// Pagination (offset-based for arbitrary page jumps)
+	Limit  int // Number of results per page (default: 20)
+	Offset int // Number of results to skip (0-indexed)
+
+	// Cursor-based pagination (for efficient prev/next navigation)
+	BeforeID *int64 // Get results before this ID (for next page - older items)
+	AfterID  *int64 // Get results after this ID (for previous page - newer items)
 }
 
 // FFprobeMetadata represents metadata extracted from ffprobe
@@ -197,4 +203,13 @@ type FFprobeMetadata struct {
 	Height   *int64
 	Width    *int64
 	Duration *float64
+}
+
+// SearchResult represents paginated search results
+type SearchResult struct {
+	Media      []*Media
+	TotalCount int64
+	FirstID    int64 // ID of first item in current page
+	LastID     int64 // ID of last item in current page
+	HasMore    bool  // Whether there are more results after this page
 }

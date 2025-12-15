@@ -159,29 +159,6 @@ func GenerateThumbnail(mediaPath, thumbPath string, mediaType models.MediaType) 
 	return nil
 }
 
-// HashAndWriteFile computes MD5 hash while writing a file
-func HashAndWriteFile(src io.Reader, destPath string) (string, error) {
-	if err := EnsureDirectoryExists(filepath.Dir(destPath)); err != nil {
-		return "", err
-	}
-
-	destFile, err := os.Create(destPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to create file: %w", err)
-	}
-	defer destFile.Close()
-
-	hash := md5.New()
-	writer := io.MultiWriter(destFile, hash)
-
-	if _, err := io.Copy(writer, src); err != nil {
-		os.Remove(destPath)
-		return "", fmt.Errorf("failed to write file: %w", err)
-	}
-
-	return hex.EncodeToString(hash.Sum(nil)), nil
-}
-
 // FormatToExtension converts ffprobe format names to file extensions
 func FormatToExtension(format string) string {
 	formatMap := map[string]string{
@@ -437,9 +414,22 @@ func FinalizeUpload(db *database.DB, sessionID string, tagList string) (int64, e
 		fmt.Printf("LOG: File moved successfully\n")
 	}
 
+	thumbPath, err := GetThumbnailPath(md5Hash, DEFAULT_THUMBNAIL_SIZE)
+	if err != nil {
+		fmt.Printf("ERROR: Failed to get thumbnail path: %v\n", err)
+		_ = os.Remove(path)
+		cleanupSession()
+		return 0, err
+	}
+
+	fmt.Printf("LOG: Generating thumbnail at %s\n", thumbPath)
+	if err := GenerateThumbnail(path, thumbPath, mediaType); err != nil {
+		fmt.Printf("WARN: Failed to generate thumbnail: %v\n", err)
+	}
+
 	media := &models.CreateMediaInput{
-		FilePath:  path,
 		MD5:       md5Hash,
+		FileExt:   ext,
 		MediaType: mediaType,
 		MimeType:  string(mediaType) + "/" + metadata.Codec,
 		FileSize:  metadata.FileSize,
@@ -474,7 +464,13 @@ func FinalizeUpload(db *database.DB, sessionID string, tagList string) (int64, e
 	}
 	fmt.Printf("LOG: Media record created with ID: %d\n", id)
 
-	tags := ParseTags(tagList)
+	tags, err := ParseTags(tagList)
+	if err != nil {
+		fmt.Printf("ERROR: Failed to parse tags: %v\n", err)
+		dbCleanup()
+		return 0, fmt.Errorf("invalid tag format: %w", err)
+	}
+
 	if len(tags) > 0 && tagList != "" {
 		fmt.Printf("LOG: Adding %d tags: %v\n", len(tags), tags)
 		if err := database.AddTagsToMediaInTx(tx, id, tags); err != nil {
@@ -498,6 +494,9 @@ func FinalizeUpload(db *database.DB, sessionID string, tagList string) (int64, e
 }
 
 func TagPost(db *database.DB, mediaID int64, tagInput string) error {
-	tags := ParseTags(tagInput)
+	tags, err := ParseTags(tagInput)
+	if err != nil {
+		return fmt.Errorf("invalid tag format: %w", err)
+	}
 	return db.AddTagsToMediaTx(mediaID, tags)
 }

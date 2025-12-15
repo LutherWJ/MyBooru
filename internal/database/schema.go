@@ -7,8 +7,8 @@ const createTablesSQL = `
 
 CREATE TABLE IF NOT EXISTS media (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  file_path TEXT NOT NULL UNIQUE,
   md5 TEXT NOT NULL UNIQUE,
+  file_ext TEXT NOT NULL,
   media_type TEXT NOT NULL CHECK(media_type IN ('image', 'video', 'audio')),
   mime_type TEXT NOT NULL,
   file_size INTEGER NOT NULL,
@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS media (
 CREATE TABLE IF NOT EXISTS tags (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL UNIQUE COLLATE NOCASE,
-  -- Category: 0=general, 1=artist, 2=copyright, 3=character, 4=metadata (matches Danbooru)
+  -- Category: 0=general, 1=artist, 2=copyright, 3=character, 4=metadata 
   category INTEGER NOT NULL DEFAULT 0 CHECK(category IN (0, 1, 2, 3, 4)),
   usage_count INTEGER NOT NULL DEFAULT 0,
   created_at INTEGER NOT NULL
@@ -117,7 +117,6 @@ CREATE TABLE IF NOT EXISTS collection_media (
 
 CREATE INDEX IF NOT EXISTS idx_media_created_at ON media(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_media_rating ON media(rating);
-CREATE INDEX IF NOT EXISTS idx_media_md5 ON media(md5);
 CREATE INDEX IF NOT EXISTS idx_media_last_viewed ON media(last_viewed_at DESC);
 CREATE INDEX IF NOT EXISTS idx_media_width ON media(width);
 CREATE INDEX IF NOT EXISTS idx_media_height ON media(height);
@@ -128,7 +127,6 @@ CREATE INDEX IF NOT EXISTS idx_media_media_type ON media(media_type);
 CREATE INDEX IF NOT EXISTS idx_media_tags_media ON media_tags(media_id);
 CREATE INDEX IF NOT EXISTS idx_media_tags_tag ON media_tags(tag_id);
 
-CREATE INDEX IF NOT EXISTS idx_tags_name ON tags(name COLLATE NOCASE);
 CREATE INDEX IF NOT EXISTS idx_tags_category ON tags(category);
 CREATE INDEX IF NOT EXISTS idx_tags_usage ON tags(usage_count DESC);
 CREATE INDEX IF NOT EXISTS idx_tags_category_usage ON tags(category, usage_count DESC);

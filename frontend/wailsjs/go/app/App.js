@@ -10,6 +10,18 @@ export function GetMediaByID(arg1) {
   return window['go']['app']['App']['GetMediaByID'](arg1);
 }
 
+export function GetMediaPathByMD5(arg1, arg2) {
+  return window['go']['app']['App']['GetMediaPathByMD5'](arg1, arg2);
+}
+
+export function GetThumbnailPaths(arg1) {
+  return window['go']['app']['App']['GetThumbnailPaths'](arg1);
+}
+
+export function SearchMedia(arg1, arg2, arg3, arg4, arg5) {
+  return window['go']['app']['App']['SearchMedia'](arg1, arg2, arg3, arg4, arg5);
+}
+
 export function Shutdown(arg1) {
   return window['go']['app']['App']['Shutdown'](arg1);
 }

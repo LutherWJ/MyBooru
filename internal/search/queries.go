@@ -1,4 +1,4 @@
-package database
+package search
 
 import (
 	"mybooru/internal/models"
@@ -21,13 +21,15 @@ func parseTag(p *parser) string {
 			result := string(p.query[startPos:p.pos])
 			p.pos++
 			return result
+		} else if c == ':' {
+			// TODO: parse special syntax
 		}
 		p.pos++
 	}
 	return string(p.query[startPos:p.pos])
 }
 
-func parseQuery(query string) *models.SearchQuery {
+func ParseQuery(query string) *models.SearchQuery {
 	var searchQuery = &models.SearchQuery{}
 	p := &parser{query: []rune(query), pos: 0}
 
