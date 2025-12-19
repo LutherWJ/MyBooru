@@ -1,17 +1,33 @@
-<script setup>
-import useTabStore from "@/stores/tabStore";
-import {watch, onMounted} from "vue";
+<script setup lang="ts">
 import TabBar from "@/components/TabBar.vue";
-import Upload from "@/views/Upload.vue";
+import NavBar from "@/components/NavBar.vue";
+import useTabStore from "@/stores/tabStore";
+import {onMounted} from "vue";
 
 const tabStore = useTabStore();
 
 onMounted(() => {
-  tabStore.addTab('gallery');
+  if (tabStore.tabs.length === 0) {
+    const id = tabStore.addTab('Gallery');
+    tabStore.setActiveTab(id);
+  }
 })
 </script>
 
 <template>
-  <TabBar/>
-  <Upload/>
+  <div class="flex flex-col h-screen bg-app-bg text-white overflow-hidden">
+    <!-- Top Navigation Bar -->
+    <NavBar />
+    
+    <!-- Main Workspace -->
+    <div class="flex flex-1 overflow-hidden">
+      <!-- Left Sidebar Tabs -->
+      <TabBar />
+      
+      <!-- Content Area -->
+      <main class="flex-1 overflow-auto relative bg-app-bg">
+        <router-view :key="$route.fullPath"/>
+      </main>
+    </div>
+  </div>
 </template>

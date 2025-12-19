@@ -49,13 +49,29 @@ const useUploadStore = defineStore('uploads', {
                 for (let i = 0; i < chunkCount; i++) {
                     const chunkStart = i * CHUNK_SIZE;
                     const chunkEnd = Math.min((i + 1) * CHUNK_SIZE, uploadSize);
+
+                    const t0 = performance.now()
                     const chunk = upload.slice(chunkStart, chunkEnd);
 
+                    const t1 = performance.now()
                     const arrayBuffer = await chunk.arrayBuffer();
+
+                    const t2 = performance.now()
                     const uint8Array = new Uint8Array(arrayBuffer);
 
+                    const t3 = performance.now()
+                    // TODO: Unbelievably big bottleneck here.
+                    // Array.from type conversion is making this operation 50x slower
                     await UploadChunk(sessionID, Array.from(uint8Array));
+                    const t4 = performance.now()
                     this.uploadProgress = Math.round(((i + 1) / chunkCount) * 100);
+
+                    console.log({
+                        slice: t1-t0,
+                        arrayBuffer: t2-t1,
+                        convert: t3-t2,
+                        rpc: t4-t3
+                    });
                 }
 
                 const tagString = this.mediaTagList[this.selectedIndex] || '';

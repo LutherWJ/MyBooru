@@ -58,10 +58,10 @@ describe('useGallery', () => {
     gallery.pageAmount.value = 3
     gallery.pageIndex.value = 1
 
-    await gallery.changePage(-1)
+    await gallery.jumpToPage(-1)
     expect(gallery.pageIndex.value).toBe(1)
 
-    await gallery.changePage(5)
+    await gallery.jumpToPage(5)
     expect(gallery.pageIndex.value).toBe(1)
   })
 })

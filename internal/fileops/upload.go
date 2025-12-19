@@ -295,8 +295,12 @@ func StartUpload(totalSize int64) (sessionID string, err error) {
 }
 
 func UploadChunk(sessionID string, data []byte) error {
+	entryTime := time.Now()
+
+	lockStart := time.Now()
 	uploadSessionsMu.Lock()
 	defer uploadSessionsMu.Unlock()
+	lockTime := time.Since(lockStart)
 
 	session := uploadSessions[sessionID]
 	if session == nil {
@@ -304,7 +308,10 @@ func UploadChunk(sessionID string, data []byte) error {
 		return ErrSessionNotFound
 	}
 
+	writeStart := time.Now()
 	n, err := session.TempFile.Write(data)
+	writeTime := time.Since(writeStart)
+
 	if err != nil {
 		fmt.Printf("ERROR: Failed to write chunk for session %s: %v\n", sessionID, err)
 		_ = session.TempFile.Close()
@@ -313,8 +320,15 @@ func UploadChunk(sessionID string, data []byte) error {
 		return err
 	}
 
+	hashStart := time.Now()
 	session.Hash.Write(data)
+	hashTime := time.Since(hashStart)
+
 	session.BytesWritten += int64(n)
+	totalTime := time.Since(entryTime)
+
+	fmt.Printf("PERF: Chunk %d bytes - lock:%v write:%v hash:%v total:%v\n",
+		n, lockTime, writeTime, hashTime, totalTime)
 
 	return nil
 }

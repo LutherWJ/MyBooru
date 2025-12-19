@@ -64,6 +64,6 @@ func (a *App) GetMediaPathByMD5(md5 string, ext string) (string, error) {
 	return fileops.GetMediaFilePath(md5, ext)
 }
 
-func (a *App) GetThumbnailPaths(md5 string) (string, error) {
+func (a *App) GetThumbnailPath(md5 string) (string, error) {
 	return fileops.GetThumbnailPath(md5, fileops.DEFAULT_THUMBNAIL_SIZE)
 }

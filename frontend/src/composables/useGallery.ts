@@ -1,19 +1,18 @@
 import {computed, ref} from "vue";
-import {models, SearchMedia} from "../../wailsjs/go/app/App";
+import {SearchMedia} from "../../wailsjs/go/app/App";
+import {models} from '../../wailsjs/go/models'
+import SearchResult = models.SearchResult;
 
 const ITEMS_PER_PAGE = 20;
 
 const useGallery = () => {
     let activeQuery = '';
     const searchBox = ref<string>('');
-    const searchResults = ref<models.Media[]>([]);
-    const pageAmount = ref<number>(0);
+    const searchResults = ref<models.SearchResult>(new SearchResult());
+    const pageAmount = computed(() => Math.ceil(searchResults.value.TotalCount / ITEMS_PER_PAGE))
     const pageIndex = ref<number>(0);
-    let firstID: number | null = null;
-    let lastID: number | null = null;
-    let hasMore: boolean = false;
 
-    const hasResults = computed(() => searchResults.value.length > 0);
+    const hasResults = computed(() => searchResults.value.Media.length > 0);
     const isFirstPage = computed(() => pageIndex.value === 0);
     const isLastPage = computed(() => pageIndex.value >= pageAmount.value - 1);
 
@@ -22,43 +21,31 @@ const useGallery = () => {
         try {
             const result = await SearchMedia(activeQuery, ITEMS_PER_PAGE, 0, null, null);
             pageIndex.value = 0;
-            searchResults.value = result.Media;
-            firstID = result.FirstID ?? null;
-            lastID = result.LastID ?? null;
-            hasMore = result.HasMore;
-            pageAmount.value = Math.ceil(result.TotalCount / ITEMS_PER_PAGE);
+            searchResults.value = result;
         } catch (error) {
             console.error('Search failed:', error);
         }
     };
 
     const nextPage = async () => {
-        if (!hasMore || !lastID) return;
+        if (!searchResults.value.HasMore || !searchResults.value.LastID) return;
 
         try {
-            const result = await SearchMedia(activeQuery, ITEMS_PER_PAGE, 0, lastID, null);
+            const result = await SearchMedia(activeQuery, ITEMS_PER_PAGE, 0, searchResults.value.LastID, null);
             pageIndex.value++;
-            searchResults.value = result.Media;
-            firstID = result.FirstID ?? null;
-            lastID = result.LastID ?? null;
-            hasMore = result.HasMore;
-            pageAmount.value = Math.ceil(result.TotalCount / ITEMS_PER_PAGE);
+            searchResults.value = result;
         } catch (error) {
             console.error('Failed to load next page:', error);
         }
     };
 
     const prevPage = async () => {
-        if (pageIndex.value === 0 || !firstID) return;
+        if (pageIndex.value === 0 || !searchResults.value.FirstID) return;
 
         try {
-            const result = await SearchMedia(activeQuery, ITEMS_PER_PAGE, 0, null, firstID);
+            const result = await SearchMedia(activeQuery, ITEMS_PER_PAGE, 0, null, searchResults.value.FirstID);
             pageIndex.value--;
-            searchResults.value = result.Media;
-            firstID = result.FirstID ?? null;
-            lastID = result.LastID ?? null;
-            hasMore = result.HasMore;
-            pageAmount.value = Math.ceil(result.TotalCount / ITEMS_PER_PAGE);
+            searchResults.value = result;
         } catch (error) {
             console.error('Failed to load previous page:', error);
         }
@@ -71,11 +58,7 @@ const useGallery = () => {
             const offset = page * ITEMS_PER_PAGE;
             const result = await SearchMedia(activeQuery, ITEMS_PER_PAGE, offset, null, null);
             pageIndex.value = page;
-            searchResults.value = result.Media;
-            firstID = result.FirstID ?? null;
-            lastID = result.LastID ?? null;
-            hasMore = result.HasMore;
-            pageAmount.value = Math.ceil(result.TotalCount / ITEMS_PER_PAGE);
+            searchResults.value = result;
         } catch (error) {
             console.error('Failed to jump to page:', error);
         }

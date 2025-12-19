@@ -1,17 +1,22 @@
 import {createRouter, createWebHashHistory} from 'vue-router';
 import type {RouteRecordRaw} from 'vue-router';
-import Home from '../views/Home.vue';
 import Gallery from "../views/Gallery.vue";
 import Upload from '../views/Upload.vue';
 
 const routes: RouteRecordRaw[] = [
     {
         path: '/',
+        redirect: () => {
+            return { name: 'Gallery', params: { tabId: '0' } };
+        }
+    },
+    {
+        path: '/gallery/:tabId',
         name: 'Gallery',
         component: Gallery,
     },
     {
-        path: '/upload',
+        path: '/upload/:tabId',
         name: 'Upload',
         component: Upload
     }
