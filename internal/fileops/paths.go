@@ -15,79 +15,79 @@ func GetAppDir() (string, error) {
 	return filepath.Join(homeDir, ".mybooru"), nil
 }
 
-// GetMediaDir returns the media storage directory
-func GetMediaDir() (string, error) {
-	appDir, err := GetAppDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(appDir, "media"), nil
-}
-
-// GetCacheDir returns the cache directory
-func GetCacheDir() (string, error) {
-	appDir, err := GetAppDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(appDir, "cache"), nil
-}
-
-// GetTempDir returns the temp directory
-func GetTempDir() (string, error) {
-	appDir, err := GetAppDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(appDir, "tmp"), nil
-}
-
-// GetThumbnailDir returns the thumbnail cache directory
-func GetThumbnailDir(size int) (string, error) {
-	cacheDir, err := GetCacheDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(cacheDir, "thumbnails", fmt.Sprintf("%d", size)), nil
-}
-
 // GetMediaFilePath returns the full path for a media file
 // Files are organized by MD5 hash prefix: ~/.mybooru/media/{hash[:2]}/{hash}.{ext}
-func GetMediaFilePath(md5Hash, extension string) (string, error) {
+func (paths *AppPaths) GetMediaFilePath(md5Hash, extension string) (string, error) {
 	if len(md5Hash) < 2 {
 		return "", fmt.Errorf("invalid MD5 hash: %s", md5Hash)
 	}
 
-	mediaDir, err := GetMediaDir()
-	if err != nil {
-		return "", err
-	}
-
 	hashPrefix := md5Hash[:2]
-	dirPath := filepath.Join(mediaDir, hashPrefix)
+	dirPath := filepath.Join(paths.MediaDir, hashPrefix)
 
 	return filepath.Join(dirPath, fmt.Sprintf("%s.%s", md5Hash, extension)), nil
 }
 
 // GetThumbnailPath returns the path for a thumbnail
 // Thumbnails are organized: ~/.mybooru/cache/thumbnails/{size}/{hash[:2]}/{hash}.jpg
-func GetThumbnailPath(md5Hash string, size int) (string, error) {
+func (paths *AppPaths) GetThumbnailPath(md5Hash string, size int) (string, error) {
 	if len(md5Hash) < 2 {
 		return "", fmt.Errorf("invalid MD5 hash: %s", md5Hash)
 	}
 
-	thumbDir, err := GetThumbnailDir(size)
-	if err != nil {
-		return "", err
-	}
-
 	hashPrefix := md5Hash[:2]
-	dirPath := filepath.Join(thumbDir, hashPrefix)
+	dirPath := filepath.Join(paths.ThumbnailDir, hashPrefix)
 
 	return filepath.Join(dirPath, fmt.Sprintf("%s.jpg", md5Hash)), nil
 }
 
-// EnsureDirectoryExists creates a directory if it doesn't exist
-func EnsureDirectoryExists(path string) error {
-	return os.MkdirAll(path, 0755)
+type AppPaths struct {
+	AppDir       string
+	MediaDir     string
+	ThumbnailDir string
+	CacheDir     string
+	TempDir      string
+	FFmpeg       string
+	FFprobe      string
+	DB           string
+	Config       string
+}
+
+func InitPaths() (AppPaths, error) {
+	appDir, err := GetAppDir()
+	if err != nil {
+		return AppPaths{}, err
+	}
+
+	binDir := filepath.Join(appDir, "bin")
+
+	paths := AppPaths{
+		AppDir:       appDir,
+		MediaDir:     filepath.Join(appDir, "media"),
+		ThumbnailDir: filepath.Join(appDir, "thumbnail"),
+		CacheDir:     filepath.Join(appDir, "cache"),
+		TempDir:      filepath.Join(appDir, "tmp"),
+		FFmpeg:       filepath.Join(binDir, "ffmpeg"),
+		FFprobe:      filepath.Join(binDir, "ffprobe"),
+		DB:           filepath.Join(appDir, "data.db"),
+		Config:       filepath.Join(appDir, "config.json"),
+	}
+
+	// Ensure directories exist
+	dirs := []string{
+		paths.AppDir,
+		paths.MediaDir,
+		paths.ThumbnailDir,
+		paths.CacheDir,
+		paths.TempDir,
+		binDir,
+	}
+
+	for _, dir := range dirs {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return AppPaths{}, err
+		}
+	}
+
+	return paths, nil
 }

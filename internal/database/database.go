@@ -3,8 +3,6 @@ package database
 import (
 	"database/sql"
 	"fmt"
-	"os"
-	"path/filepath"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -15,20 +13,8 @@ type DB struct {
 }
 
 // InitDB initializes the database connection and creates tables
-func InitDB() (*DB, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get home directory: %w", err)
-	}
-
-	dbDir := filepath.Join(homeDir, ".mybooru")
-	if err := os.MkdirAll(dbDir, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create database directory: %w", err)
-	}
-
-	dbPath := filepath.Join(dbDir, "data.db")
-
-	db, err := sql.Open("sqlite3", dbPath+"?_foreign_keys=on")
+func InitDB(path string) (*DB, error) {
+	db, err := sql.Open("sqlite3", path+"?_foreign_keys=on")
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}

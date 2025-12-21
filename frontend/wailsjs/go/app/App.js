@@ -14,6 +14,10 @@ export function GetMediaPathByMD5(arg1, arg2) {
   return window['go']['app']['App']['GetMediaPathByMD5'](arg1, arg2);
 }
 
+export function GetSettings() {
+  return window['go']['app']['App']['GetSettings']();
+}
+
 export function GetThumbnailPath(arg1) {
   return window['go']['app']['App']['GetThumbnailPath'](arg1);
 }

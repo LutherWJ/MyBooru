@@ -103,7 +103,7 @@ const useTabStore = defineStore('tabs', {
 
 const getTabState = (tabType: TabType): TabState => {
     switch (tabType) {
-        case "Gallery": return markRaw(useGallery());
+        case "Gallery": return useGallery();
         case "Upload": return useUploadStore();
     }
 }

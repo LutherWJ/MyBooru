@@ -1,8 +1,20 @@
 import {defineStore} from 'pinia'
 import {StartUpload, FinalizeUpload, UploadChunk} from "../../wailsjs/go/app/App";
 
-const MAX_BUFFER_SIZE = 1024 * 1024 * 5; // 5mb
-const CHUNK_SIZE = 1024 * 1024; // 1mb
+const CHUNK_SIZE = 1024 * 1024 * 4; // 4mb
+
+function uint8ArrayToBase64(bytes: Uint8Array): string {
+    // Process in batches to avoid stack overflow
+    const BATCH_SIZE = 65536;
+    const chunks: string[] = [];
+
+    for (let i = 0; i < bytes.length; i += BATCH_SIZE) {
+        const batch = bytes.subarray(i, Math.min(i + BATCH_SIZE, bytes.length));
+        chunks.push(String.fromCharCode.apply(null, Array.from(batch)));
+    }
+
+    return btoa(chunks.join(''));
+}
 
 const useUploadStore = defineStore('uploads', {
     state: () => ({
@@ -21,7 +33,7 @@ const useUploadStore = defineStore('uploads', {
     actions: {
         queueMedia(media: Blob) {
             this.mediaList.push(media);
-            if (this.bufferSize > MAX_BUFFER_SIZE) {
+            if (this.bufferSize > CHUNK_SIZE) {
                 // TODO: create temp files and upload them in chunks
                 console.warn('Buffer size exceeded, not uploading yet');
             }
@@ -49,33 +61,19 @@ const useUploadStore = defineStore('uploads', {
                 for (let i = 0; i < chunkCount; i++) {
                     const chunkStart = i * CHUNK_SIZE;
                     const chunkEnd = Math.min((i + 1) * CHUNK_SIZE, uploadSize);
-
-                    const t0 = performance.now()
                     const chunk = upload.slice(chunkStart, chunkEnd);
 
-                    const t1 = performance.now()
                     const arrayBuffer = await chunk.arrayBuffer();
-
-                    const t2 = performance.now()
                     const uint8Array = new Uint8Array(arrayBuffer);
+                    const base64Data = uint8ArrayToBase64(uint8Array);
 
-                    const t3 = performance.now()
-                    // TODO: Unbelievably big bottleneck here.
-                    // Array.from type conversion is making this operation 50x slower
-                    await UploadChunk(sessionID, Array.from(uint8Array));
-                    const t4 = performance.now()
+                    await UploadChunk(sessionID, base64Data);
                     this.uploadProgress = Math.round(((i + 1) / chunkCount) * 100);
-
-                    console.log({
-                        slice: t1-t0,
-                        arrayBuffer: t2-t1,
-                        convert: t3-t2,
-                        rpc: t4-t3
-                    });
-                }
+               }
 
                 const tagString = this.mediaTagList[this.selectedIndex] || '';
                 const mediaID = await FinalizeUpload(sessionID, tagString);
+
                 this.uploadProgress = 0;
                 return mediaID;
             } catch (error) {

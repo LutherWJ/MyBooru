@@ -1,3 +1,22 @@
+export namespace app {
+	
+	export class AppConfig {
+	    ThumbnailDir: string;
+	    MediaDir: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new AppConfig(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ThumbnailDir = source["ThumbnailDir"];
+	        this.MediaDir = source["MediaDir"];
+	    }
+	}
+
+}
+
 export namespace models {
 	
 	export class Media {

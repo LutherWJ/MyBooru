@@ -7,16 +7,16 @@ const routes: RouteRecordRaw[] = [
     {
         path: '/',
         redirect: () => {
-            return { name: 'Gallery', params: { tabId: '0' } };
+            return { name: 'Gallery', params: { tabID: '0' } };
         }
     },
     {
-        path: '/gallery/:tabId',
+        path: '/gallery/:tabID',
         name: 'Gallery',
         component: Gallery,
     },
     {
-        path: '/upload/:tabId',
+        path: '/upload/:tabID',
         name: 'Upload',
         component: Upload
     }

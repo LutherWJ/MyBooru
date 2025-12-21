@@ -3,6 +3,7 @@ package fileops
 import (
 	"crypto/md5"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -56,12 +57,7 @@ type FFprobeOutput struct {
 }
 
 // GetMultimediaMetadata extracts metadata from a media file using ffprobe
-func GetMultimediaMetadata(path string) (*models.FFprobeMetadata, error) {
-	ffprobePath, err := exec.LookPath("ffprobe")
-	if err != nil {
-		return nil, fmt.Errorf("ffprobe not found in PATH: %w", err)
-	}
-
+func GetMultimediaMetadata(ffprobePath string, path string) (*models.FFprobeMetadata, error) {
 	args := []string{
 		"-v", "quiet",
 		"-print_format", "json",
@@ -112,14 +108,9 @@ func GetMultimediaMetadata(path string) (*models.FFprobeMetadata, error) {
 }
 
 // GenerateThumbnail creates a thumbnail for a media file using ffmpeg
-func GenerateThumbnail(mediaPath, thumbPath string, mediaType models.MediaType) error {
-	ffmpegPath, err := exec.LookPath("ffmpeg")
-	if err != nil {
-		return fmt.Errorf("ffmpeg not found in PATH: %w", err)
-	}
-
+func GenerateThumbnail(ffmpegPath, mediaPath, thumbPath string, mediaType models.MediaType) error {
 	// Ensure thumbnail directory exists
-	if err := EnsureDirectoryExists(filepath.Dir(thumbPath)); err != nil {
+	if err := os.MkdirAll(filepath.Dir(thumbPath), 0755); err != nil {
 		return err
 	}
 
@@ -252,30 +243,21 @@ func generateUUID() (string, error) {
 	return fmt.Sprintf("%d-%s", time.Now().UnixNano(), hex.EncodeToString(b)), nil
 }
 
-func StartUpload(totalSize int64) (sessionID string, err error) {
+func (paths *AppPaths) StartUpload(totalSize int64) (sessionID string, err error) {
 	id, err := generateUUID()
 	if err != nil {
 		fmt.Printf("ERROR: Failed to generate UUID: %v\n", err)
 		return "", err
 	}
 
-	tempDir, err := GetTempDir()
-	if err != nil {
-		fmt.Printf("ERROR: Failed to get temp dir: %v\n", err)
-		return "", err
+	// Ensure temp directory exists
+	if err := os.MkdirAll(paths.TempDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create temp directory: %w", err)
 	}
 
-	if err := EnsureDirectoryExists(tempDir); err != nil {
-		fmt.Printf("ERROR: Failed to create temp dir: %v\n", err)
-		return "", err
-	}
-
-	tempPath := filepath.Join(tempDir, id+".tmp")
-	fmt.Printf("LOG: Starting upload session %s, size: %d bytes, temp path: %s\n", id, totalSize, tempPath)
-
+	tempPath := filepath.Join(paths.TempDir, id+".tmp")
 	tempFile, err := os.Create(tempPath)
 	if err != nil {
-		fmt.Printf("ERROR: Failed to create temp file: %v\n", err)
 		return "", fmt.Errorf("failed to create temp file: %w", err)
 	}
 
@@ -294,13 +276,16 @@ func StartUpload(totalSize int64) (sessionID string, err error) {
 	return id, nil
 }
 
-func UploadChunk(sessionID string, data []byte) error {
-	entryTime := time.Now()
+func (paths *AppPaths) UploadChunk(sessionID string, base64Data string) error {
+	// Decode Base64
+	data, err := base64.StdEncoding.DecodeString(base64Data)
+	if err != nil {
+		fmt.Printf("ERROR: Failed to decode base64 data: %v\n", err)
+		return fmt.Errorf("failed to decode base64: %w", err)
+	}
 
-	lockStart := time.Now()
 	uploadSessionsMu.Lock()
 	defer uploadSessionsMu.Unlock()
-	lockTime := time.Since(lockStart)
 
 	session := uploadSessions[sessionID]
 	if session == nil {
@@ -308,9 +293,7 @@ func UploadChunk(sessionID string, data []byte) error {
 		return ErrSessionNotFound
 	}
 
-	writeStart := time.Now()
 	n, err := session.TempFile.Write(data)
-	writeTime := time.Since(writeStart)
 
 	if err != nil {
 		fmt.Printf("ERROR: Failed to write chunk for session %s: %v\n", sessionID, err)
@@ -320,22 +303,13 @@ func UploadChunk(sessionID string, data []byte) error {
 		return err
 	}
 
-	hashStart := time.Now()
 	session.Hash.Write(data)
-	hashTime := time.Since(hashStart)
-
 	session.BytesWritten += int64(n)
-	totalTime := time.Since(entryTime)
-
-	fmt.Printf("PERF: Chunk %d bytes - lock:%v write:%v hash:%v total:%v\n",
-		n, lockTime, writeTime, hashTime, totalTime)
 
 	return nil
 }
 
-func FinalizeUpload(db *database.DB, sessionID string, tagList string) (int64, error) {
-	fmt.Printf("LOG: Finalizing upload for session %s\n", sessionID)
-
+func (paths *AppPaths) FinalizeUpload(db *database.DB, sessionID string, tagList string) (int64, error) {
 	uploadSessionsMu.Lock()
 	session := uploadSessions[sessionID]
 	uploadSessionsMu.Unlock()
@@ -360,7 +334,7 @@ func FinalizeUpload(db *database.DB, sessionID string, tagList string) (int64, e
 	}
 
 	fmt.Printf("LOG: Extracting metadata from %s\n", session.TempFilePath)
-	metadata, err := GetMultimediaMetadata(session.TempFilePath)
+	metadata, err := GetMultimediaMetadata(paths.FFprobe, session.TempFilePath)
 	if err != nil {
 		fmt.Printf("ERROR: Failed to get metadata: %v\n", err)
 		tmpCleanup()
@@ -380,24 +354,22 @@ func FinalizeUpload(db *database.DB, sessionID string, tagList string) (int64, e
 	md5Hash := hex.EncodeToString(session.Hash.Sum(nil))
 	fmt.Printf("LOG: MD5 hash: %s\n", md5Hash)
 
-	path, err := GetMediaFilePath(md5Hash, ext)
+	path, err := paths.GetMediaFilePath(md5Hash, ext)
 	if err != nil {
 		fmt.Printf("ERROR: Failed to get media file path: %v\n", err)
 		tmpCleanup()
 		return 0, err
 	}
-	fmt.Printf("LOG: Target media path: %s\n", path)
 
-	if err := EnsureDirectoryExists(filepath.Dir(path)); err != nil {
-		fmt.Printf("ERROR: Failed to create directory %s: %v\n", filepath.Dir(path), err)
+	// Ensure media directory exists
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		fmt.Printf("ERROR: Failed to create media directory: %v\n", err)
 		tmpCleanup()
 		return 0, err
 	}
 
-	fmt.Printf("LOG: Moving file from %s to %s\n", session.TempFilePath, path)
 	err = os.Rename(session.TempFilePath, path)
 	if err != nil {
-		fmt.Printf("LOG: Rename failed (likely cross-device), falling back to copy: %v\n", err)
 		srcFile, err := os.Open(session.TempFilePath)
 		if err != nil {
 			fmt.Printf("ERROR: Failed to open temp file for copy: %v\n", err)
@@ -428,7 +400,7 @@ func FinalizeUpload(db *database.DB, sessionID string, tagList string) (int64, e
 		fmt.Printf("LOG: File moved successfully\n")
 	}
 
-	thumbPath, err := GetThumbnailPath(md5Hash, DEFAULT_THUMBNAIL_SIZE)
+	thumbPath, err := paths.GetThumbnailPath(md5Hash, DEFAULT_THUMBNAIL_SIZE)
 	if err != nil {
 		fmt.Printf("ERROR: Failed to get thumbnail path: %v\n", err)
 		_ = os.Remove(path)
@@ -437,7 +409,7 @@ func FinalizeUpload(db *database.DB, sessionID string, tagList string) (int64, e
 	}
 
 	fmt.Printf("LOG: Generating thumbnail at %s\n", thumbPath)
-	if err := GenerateThumbnail(path, thumbPath, mediaType); err != nil {
+	if err := GenerateThumbnail(paths.FFmpeg, path, thumbPath, mediaType); err != nil {
 		fmt.Printf("WARN: Failed to generate thumbnail: %v\n", err)
 	}
 
@@ -513,4 +485,17 @@ func TagPost(db *database.DB, mediaID int64, tagInput string) error {
 		return fmt.Errorf("invalid tag format: %w", err)
 	}
 	return db.AddTagsToMediaTx(mediaID, tags)
+}
+
+// CleanupUploadSessions closes and removes any active temporary upload files
+func (paths *AppPaths) CleanupUploadSessions() {
+	uploadSessionsMu.Lock()
+	defer uploadSessionsMu.Unlock()
+
+	for id, session := range uploadSessions {
+		fmt.Printf("LOG: Cleaning up upload session %s\n", id)
+		_ = session.TempFile.Close()
+		_ = os.Remove(session.TempFilePath)
+		delete(uploadSessions, id)
+	}
 }

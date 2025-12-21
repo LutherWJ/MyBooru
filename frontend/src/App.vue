@@ -2,11 +2,15 @@
 import TabBar from "@/components/TabBar.vue";
 import NavBar from "@/components/NavBar.vue";
 import useTabStore from "@/stores/tabStore";
+import {useAppStore} from "@/stores/appStore";
 import {onMounted} from "vue";
 
 const tabStore = useTabStore();
+const appStore = useAppStore();
 
-onMounted(() => {
+onMounted(async () => {
+  await appStore.init();
+
   if (tabStore.tabs.length === 0) {
     const id = tabStore.addTab('Gallery');
     tabStore.setActiveTab(id);

@@ -1,22 +1,23 @@
 <script setup lang="ts">
 import SearchBar from "@/components/SearchBar.vue";
 import useTabStore from "@/stores/tabStore.ts";
-import {computed, onMounted, type UnwrapRef} from "vue";
+import {useAppStore} from "@/stores/appStore";
+import {computed, onMounted, unref, isRef, type UnwrapRef} from "vue";
 import {useRoute} from "vue-router";
 import type {UseGallery} from "@/types.ts";
-import {GetThumbnailPath} from "../../wailsjs/go/app/App";
 
 const route = useRoute();
 const tabStore = useTabStore();
+const appStore = useAppStore();
 
-const tabId = computed(() => parseInt(route.params.tabId as string));
+const tabID = computed(() => parseInt(route.params.tabID as string));
 
 function isGalleryState(state: any): state is UnwrapRef<UseGallery> {
   return (state as UnwrapRef<UseGallery>).searchResults !== undefined;
 }
 
 const state = computed(() => {
-  const tab = tabStore.tabs.find(t => t.id === tabId.value);
+  const tab = tabStore.tabs.find(t => t.id === tabID.value);
   if (tab && isGalleryState(tab.state)) {
     return tab.state;
   }
@@ -26,13 +27,23 @@ const state = computed(() => {
 const searchResults = computed(() => state.value?.searchResults.Media || []);
 
 const searchBox = computed({
-  get: () => state.value?.searchBox || '',
-  set: (val) => { if (state.value) state.value.searchBox = val; }
+  get: () => unref(state.value?.searchBox) || '',
+  set: (val) => {
+    if (state.value) {
+      if (isRef(state.value.searchBox)) {
+        state.value.searchBox.value = val;
+      } else {
+        (state.value as any).searchBox = val;
+      }
+    }
+  }
 });
 
 onMounted(() => {
-
-})
+  if (state.value) {
+    state.value.search();
+  }
+});
 </script>
 
 <template>
@@ -43,10 +54,10 @@ onMounted(() => {
   </div>
     
     <div class="w-full mt-12">
-      <h1 class="text-white text-4xl mb-8">GALLERY (Tab: {{ tabId }})</h1>
+      <h1 class="text-white text-4xl mb-8">GALLERY (Tab: {{ tabID }})</h1>
       <div class="grid grid-cols-4 gap-4">
       <div v-for="media in searchResults" :key="media.ID" class="bg-gray-800 p-4 rounded shadow">
-        <p class="text-white">{{ GetThumbnailPath(media.MD5) }}</p>
+        <img :src="appStore.getThumbnailPath(media.MD5)" class="w-full h-auto" />
       </div>
     </div>
     <div v-if="searchResults.length === 0" class="text-gray-500 text-center mt-20">
