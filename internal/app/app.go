@@ -28,8 +28,12 @@ func NewApp(db *database.DB, paths fileops.AppPaths, config *models.Config, serv
 	}
 }
 
-func (a *App) GetConfig() (*models.Config, error) {
-	return a.config, nil
+func (a *App) GetConfig() *models.Config {
+	return a.config
+}
+
+func (a *App) UpdateConfig(config *models.Config) error {
+	return a.config.ModifyConfig(config, a.paths.Config)
 }
 
 func (a *App) Startup(ctx context.Context) {
@@ -49,24 +53,13 @@ func (a *App) Shutdown(ctx context.Context) {
 	a.ctx = nil
 }
 
-// StartUpload begins a new file upload session
-func (a *App) StartUpload(totalSize int64) (string, error) {
-	return a.paths.StartUpload(totalSize)
-}
-
-// UploadChunk writes a chunk of data to an upload session
-func (a *App) UploadChunk(sessionID string, base64Data string) error {
-	return a.paths.UploadChunk(sessionID, base64Data)
-}
-
-// FinalizeUpload completes the upload and creates the media record
-func (a *App) FinalizeUpload(sessionID string, tags string) (int64, error) {
-	return a.paths.FinalizeUpload(a.db, sessionID, tags)
-}
-
 // GetMediaByID retrieves a single media item by ID
 func (a *App) GetMediaByID(id int64) (*models.Media, error) {
 	return a.db.GetMediaByID(id)
+}
+
+func (a *App) GetApiPort() int {
+	return a.server.GetPort()
 }
 
 func (a *App) SearchMedia(searchString string, limit int, offset int, beforeID *int64, afterID *int64) (*models.SearchResult, error) {

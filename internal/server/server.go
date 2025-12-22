@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"mybooru/internal/database"
+	"mybooru/internal/fileops"
 	"mybooru/internal/models"
 	"net"
 	"net/http"
@@ -17,16 +18,20 @@ type Server struct {
 	listener net.Listener
 	port     int
 	config   models.Config
+	paths    fileops.AppPaths
 }
 
-func NewServer(db *database.DB, config models.Config) *Server {
+func NewServer(db *database.DB, config models.Config, paths fileops.AppPaths) *Server {
 	return &Server{
 		db:     db,
 		config: config,
+		paths:  paths,
 	}
 }
 
 func (s *Server) Start() error {
+
+	// Try the config port, otherwise attempt a random port
 	address := fmt.Sprintf("localhost:%d", s.config.Port)
 	listener, err := net.Listen("tcp", address)
 	s.port = s.config.Port
@@ -39,9 +44,11 @@ func (s *Server) Start() error {
 	}
 
 	s.listener = listener
+	mux := s.setupRoutes()
+	s.server.Handler = s.corsMiddleware(s.securityMiddleware(mux))
 
 	go func() {
-		fmt.Printf("Server started on port %d\n", s.config.Port)
+		fmt.Printf("Server started on port %d\n", s.port)
 		if err := s.server.Serve(listener); err != nil && errors.Is(err, http.ErrServerClosed) {
 			fmt.Printf("Server error: %v\n", err)
 		}

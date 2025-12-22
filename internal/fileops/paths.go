@@ -36,7 +36,7 @@ func (paths *AppPaths) GetThumbnailPath(md5Hash string, size int) (string, error
 	}
 
 	hashPrefix := md5Hash[:2]
-	dirPath := filepath.Join(paths.ThumbnailDir, hashPrefix)
+	dirPath := filepath.Join(paths.ThumbnailDir, fmt.Sprintf("%d", size), hashPrefix)
 
 	return filepath.Join(dirPath, fmt.Sprintf("%s.jpg", md5Hash)), nil
 }

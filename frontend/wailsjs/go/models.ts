@@ -1,24 +1,19 @@
-export namespace app {
+export namespace models {
 	
-	export class AppConfig {
-	    ThumbnailDir: string;
-	    MediaDir: string;
+	export class Config {
+	    port: number;
+	    thumbnail_sizes: number;
 	
 	    static createFrom(source: any = {}) {
-	        return new AppConfig(source);
+	        return new Config(source);
 	    }
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.ThumbnailDir = source["ThumbnailDir"];
-	        this.MediaDir = source["MediaDir"];
+	        this.port = source["port"];
+	        this.thumbnail_sizes = source["thumbnail_sizes"];
 	    }
 	}
-
-}
-
-export namespace models {
-	
 	export class Media {
 	    ID: number;
 	    MD5: string;

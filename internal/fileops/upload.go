@@ -3,7 +3,6 @@ package fileops
 import (
 	"crypto/md5"
 	"crypto/rand"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -30,7 +29,6 @@ var (
 	uploadSessionsMu sync.Mutex
 )
 
-const DEFAULT_THUMBNAIL_SIZE = 300 // Height and Width in pixels
 type UploadSession struct {
 	ID           string
 	Mimetype     string
@@ -108,7 +106,7 @@ func GetMultimediaMetadata(ffprobePath string, path string) (*models.FFprobeMeta
 }
 
 // GenerateThumbnail creates a thumbnail for a media file using ffmpeg
-func GenerateThumbnail(ffmpegPath, mediaPath, thumbPath string, mediaType models.MediaType) error {
+func GenerateThumbnail(ffmpegPath, mediaPath, thumbPath string, mediaType models.MediaType, thumbnailSize int) error {
 	// Ensure thumbnail directory exists
 	if err := os.MkdirAll(filepath.Dir(thumbPath), 0755); err != nil {
 		return err
@@ -120,7 +118,7 @@ func GenerateThumbnail(ffmpegPath, mediaPath, thumbPath string, mediaType models
 	case models.MediaTypeImage:
 		args = []string{
 			"-i", mediaPath,
-			"-vf", fmt.Sprintf("scale=%d:%d:force_original_aspect_ratio=increase,crop=%d:%d", DEFAULT_THUMBNAIL_SIZE, DEFAULT_THUMBNAIL_SIZE, DEFAULT_THUMBNAIL_SIZE, DEFAULT_THUMBNAIL_SIZE),
+			"-vf", fmt.Sprintf("scale=%d:%d:force_original_aspect_ratio=increase,crop=%d:%d", thumbnailSize, thumbnailSize, thumbnailSize, thumbnailSize),
 			"-y", // Overwrite output file
 			thumbPath,
 		}
@@ -128,7 +126,7 @@ func GenerateThumbnail(ffmpegPath, mediaPath, thumbPath string, mediaType models
 	case models.MediaTypeVideo:
 		args = []string{
 			"-i", mediaPath,
-			"-vf", fmt.Sprintf("scale=%d:%d:force_original_aspect_ratio=increase,crop=%d:%d", DEFAULT_THUMBNAIL_SIZE, DEFAULT_THUMBNAIL_SIZE, DEFAULT_THUMBNAIL_SIZE, DEFAULT_THUMBNAIL_SIZE),
+			"-vf", fmt.Sprintf("scale=%d:%d:force_original_aspect_ratio=increase,crop=%d:%d", thumbnailSize, thumbnailSize, thumbnailSize, thumbnailSize),
 			"-frames:v", "1",
 			"-y",
 			thumbPath,
@@ -276,40 +274,36 @@ func (paths *AppPaths) StartUpload(totalSize int64) (sessionID string, err error
 	return id, nil
 }
 
-func (paths *AppPaths) UploadChunk(sessionID string, base64Data string) error {
-	// Decode Base64
-	data, err := base64.StdEncoding.DecodeString(base64Data)
-	if err != nil {
-		fmt.Printf("ERROR: Failed to decode base64 data: %v\n", err)
-		return fmt.Errorf("failed to decode base64: %w", err)
-	}
-
+func (paths *AppPaths) UploadChunk(sessionID string, r io.Reader) error {
 	uploadSessionsMu.Lock()
-	defer uploadSessionsMu.Unlock()
-
 	session := uploadSessions[sessionID]
+	uploadSessionsMu.Unlock()
+
 	if session == nil {
 		fmt.Printf("ERROR: Session %s not found\n", sessionID)
 		return ErrSessionNotFound
 	}
 
-	n, err := session.TempFile.Write(data)
+	// Use TeeReader to update the hash as we write to the file
+	tr := io.TeeReader(r, session.Hash)
 
+	n, err := io.Copy(session.TempFile, tr)
 	if err != nil {
 		fmt.Printf("ERROR: Failed to write chunk for session %s: %v\n", sessionID, err)
 		_ = session.TempFile.Close()
 		_ = os.Remove(session.TempFilePath)
+		uploadSessionsMu.Lock()
 		delete(uploadSessions, sessionID)
+		uploadSessionsMu.Unlock()
 		return err
 	}
 
-	session.Hash.Write(data)
-	session.BytesWritten += int64(n)
+	session.BytesWritten += n
 
 	return nil
 }
 
-func (paths *AppPaths) FinalizeUpload(db *database.DB, sessionID string, tagList string) (int64, error) {
+func (paths *AppPaths) FinalizeUpload(db *database.DB, config *models.Config, sessionID string, tagList string) (int64, error) {
 	uploadSessionsMu.Lock()
 	session := uploadSessions[sessionID]
 	uploadSessionsMu.Unlock()
@@ -400,7 +394,7 @@ func (paths *AppPaths) FinalizeUpload(db *database.DB, sessionID string, tagList
 		fmt.Printf("LOG: File moved successfully\n")
 	}
 
-	thumbPath, err := paths.GetThumbnailPath(md5Hash, DEFAULT_THUMBNAIL_SIZE)
+	thumbPath, err := paths.GetThumbnailPath(md5Hash, config.ThumbnailSize)
 	if err != nil {
 		fmt.Printf("ERROR: Failed to get thumbnail path: %v\n", err)
 		_ = os.Remove(path)
@@ -409,7 +403,7 @@ func (paths *AppPaths) FinalizeUpload(db *database.DB, sessionID string, tagList
 	}
 
 	fmt.Printf("LOG: Generating thumbnail at %s\n", thumbPath)
-	if err := GenerateThumbnail(paths.FFmpeg, path, thumbPath, mediaType); err != nil {
+	if err := GenerateThumbnail(paths.FFmpeg, path, thumbPath, mediaType, config.ThumbnailSize); err != nil {
 		fmt.Printf("WARN: Failed to generate thumbnail: %v\n", err)
 	}
 

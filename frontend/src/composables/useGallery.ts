@@ -11,7 +11,6 @@ const useGallery = () => {
     const searchResults = ref<models.SearchResult>(new SearchResult());
     const pageAmount = computed(() => Math.ceil(searchResults.value.TotalCount / ITEMS_PER_PAGE))
     const pageIndex = ref<number>(0);
-
     const hasResults = computed(() => searchResults.value.Media.length > 0);
     const isFirstPage = computed(() => pageIndex.value === 0);
     const isLastPage = computed(() => pageIndex.value >= pageAmount.value - 1);
@@ -77,6 +76,10 @@ const useGallery = () => {
         prevPage,
         jumpToPage
     }
+}
+
+const searchMedia = (query: string, limit: number, offset: number, lastID: string | null, firstID: string | null) => {
+
 }
 
 export default useGallery;

@@ -2,45 +2,32 @@ package models
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
-	"path/filepath"
+)
+
+var (
+	ErrInvalidPort      = fmt.Errorf("Invalid port number provided")
+	ErrInvalidThumbSize = fmt.Errorf("Invalid thumbnail size provided")
 )
 
 type Config struct {
-	AppDir         string `json:"app_dir"`   // Base: ~/.mybooru
-	MediaDir       string `json:"media_dir"` // Base: ~/.mybooru/media
-	CacheDir       string `json:"cache_dir"` // Base: ~/.mybooru/cache
-	TempDir        string `json:"temp_dir"`  // Base: ~/.mybooru/tmp
-	Port           int    `json:"port"`
-	ThumbnailSizes []int  `json:"thumbnail_sizes"`
+	Port          int `json:"port"`
+	ThumbnailSize int `json:"thumbnail_sizes"`
 }
 
-func DefaultConfig() (*Config, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return nil, err
-	}
-
-	appDir := filepath.Join(homeDir, ".mybooru")
-
+func DefaultConfig() *Config {
 	return &Config{
-		AppDir:         appDir,
-		MediaDir:       filepath.Join(appDir, "media"),
-		CacheDir:       filepath.Join(appDir, "cache"),
-		TempDir:        filepath.Join(appDir, "tmp"),
-		ThumbnailSizes: []int{256, 512},
-	}, nil
+		Port:          2234,
+		ThumbnailSize: 256,
+	}
 }
 
 func LoadConfig(path string) (*Config, error) {
 	// Try to load existing config
 	data, err := os.ReadFile(path)
 	if err != nil {
-		config, err := DefaultConfig()
-		if err != nil {
-			return nil, err
-		}
-
+		config := DefaultConfig()
 		config.Save(path)
 		return config, nil
 	}
@@ -53,12 +40,22 @@ func LoadConfig(path string) (*Config, error) {
 	return &config, nil
 }
 
+func (c *Config) ModifyConfig(newConfig *Config, configPath string) error {
+	if newConfig.Port < 0 && 65536 < newConfig.Port {
+		return ErrInvalidPort
+	}
+	if c.ThumbnailSize < 0 {
+		return ErrInvalidThumbSize
+	}
+	c.Port = newConfig.Port
+	c.ThumbnailSize = newConfig.ThumbnailSize
+	return c.Save(configPath)
+}
+
 func (c *Config) Save(path string) error {
 	data, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
 		return err
 	}
-
-	os.MkdirAll(filepath.Dir(path), 0755)
 	return os.WriteFile(path, data, 0644)
 }

@@ -1,20 +1,7 @@
 import {defineStore} from 'pinia'
-import {StartUpload, FinalizeUpload, UploadChunk} from "../../wailsjs/go/app/App";
+import {useAppStore} from "@/stores/appStore.ts";
 
 const CHUNK_SIZE = 1024 * 1024 * 4; // 4mb
-
-function uint8ArrayToBase64(bytes: Uint8Array): string {
-    // Process in batches to avoid stack overflow
-    const BATCH_SIZE = 65536;
-    const chunks: string[] = [];
-
-    for (let i = 0; i < bytes.length; i += BATCH_SIZE) {
-        const batch = bytes.subarray(i, Math.min(i + BATCH_SIZE, bytes.length));
-        chunks.push(String.fromCharCode.apply(null, Array.from(batch)));
-    }
-
-    return btoa(chunks.join(''));
-}
 
 const useUploadStore = defineStore('uploads', {
     state: () => ({
@@ -56,7 +43,7 @@ const useUploadStore = defineStore('uploads', {
             const chunkCount = Math.ceil(uploadSize / CHUNK_SIZE);
 
             try {
-                const sessionID = await StartUpload(upload.size);
+                const sessionID = await startUpload(upload.size);
 
                 for (let i = 0; i < chunkCount; i++) {
                     const chunkStart = i * CHUNK_SIZE;
@@ -64,15 +51,14 @@ const useUploadStore = defineStore('uploads', {
                     const chunk = upload.slice(chunkStart, chunkEnd);
 
                     const arrayBuffer = await chunk.arrayBuffer();
-                    const uint8Array = new Uint8Array(arrayBuffer);
-                    const base64Data = uint8ArrayToBase64(uint8Array);
+                    const data = new Uint8Array(arrayBuffer);
 
-                    await UploadChunk(sessionID, base64Data);
+                    await uploadChunk(sessionID, data);
                     this.uploadProgress = Math.round(((i + 1) / chunkCount) * 100);
                }
 
                 const tagString = this.mediaTagList[this.selectedIndex] || '';
-                const mediaID = await FinalizeUpload(sessionID, tagString);
+                const mediaID = await finalizeUpload(sessionID, tagString);
 
                 this.uploadProgress = 0;
                 return mediaID;
@@ -83,5 +69,52 @@ const useUploadStore = defineStore('uploads', {
         },
     }
 })
+
+const startUpload = async (size: number): Promise<string | null> => {
+    try {
+        const store = useAppStore();
+        const port = store.port;
+        const res = await fetch(`http://localhost:${port}/upload/init`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({totalSize: size})
+        });
+        if (!res.ok) return null
+        const data = await res.json();
+        return data.sessionID;
+    } catch (err) {
+        console.error(err);
+        return null;
+    }
+}
+
+const uploadChunk = async (sessionID: string | null, chunk: Uint8Array) => {
+    if (sessionID === null) throw new Error('Session does not exist')
+    const store = useAppStore();
+    const port = store.port;
+    const res = await fetch(`http://localhost:${port}/upload/chunk?sessionID=${sessionID}`, {
+        method: 'POST',
+        // @ts-ignore
+        body: chunk
+    });
+    if (!res.ok) throw new Error('Failed to upload chunk');
+}
+
+const finalizeUpload = async (sessionID: string | null, tags: string) => {
+    const store = useAppStore();
+    const port = store.port;
+    if (sessionID === null) throw new Error('Session does not exist')
+    const res = await fetch(`http://localhost:${port}/upload/finalize?sessionID=${sessionID}&tags=${tags}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+    });
+    if (!res.ok) throw new Error('Failed to finalize upload');
+    const data = await res.json();
+    return data.mediaID;
+}
 
 export default useUploadStore;

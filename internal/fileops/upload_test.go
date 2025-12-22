@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"mybooru/internal/database"
+	"mybooru/internal/models"
 )
 
 func createMockBinaries(t *testing.T, dir string) (string, string) {
@@ -108,7 +109,8 @@ func TestUploadFlow(t *testing.T) {
 
 	// Test FinalizeUpload
 	// This should create the media directory (based on hash) and thumbnail directory
-	mediaID, err := paths.FinalizeUpload(db, sessionID, "test_tag")
+	config := models.DefaultConfig()
+	mediaID, err := paths.FinalizeUpload(db, config, sessionID, "test_tag")
 
 	// Check if the error is the expected DB error (ignoring DB setup issues for this test)
 	if err != nil {

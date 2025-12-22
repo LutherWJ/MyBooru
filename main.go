@@ -1,4 +1,4 @@
-package main
+package main // mango 🥭
 
 import (
 	"embed"
@@ -34,7 +34,7 @@ func main() {
 	}
 	defer db.Close()
 
-	srv := server.NewServer(db, *config)
+	srv := server.NewServer(db, *config, paths)
 
 	application := app.NewApp(db, paths, config, srv)
 
