@@ -1,14 +1,11 @@
 <script setup lang="ts">
 import useUploadStore from "@/stores/uploadStore.ts";
-import useTabStore from "@/stores/tabStore.ts";
 import {computed} from "vue";
 import {useRoute} from "vue-router";
+import {useAPI} from "@/composables/useAPI.ts";
 
 const route = useRoute();
-const tabStore = useTabStore();
 const uploadStore = useUploadStore();
-
-const tabId = computed(() => parseInt(route.params.tabId as string));
 
 const mediaList = computed(() => uploadStore.mediaList);
 const selectedMedia = computed(() => uploadStore.selectedMedia);

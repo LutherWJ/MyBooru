@@ -58,6 +58,11 @@ func (a *App) GetMediaByID(id int64) (*models.Media, error) {
 	return a.db.GetMediaByID(id)
 }
 
+// GetTagsByMediaID retrieves tags for a media item
+func (a *App) GetTagsByMediaID(mediaID int64) ([]*models.Tag, error) {
+	return a.db.GetTagsByMediaID(mediaID)
+}
+
 func (a *App) GetApiPort() int {
 	return a.server.GetPort()
 }

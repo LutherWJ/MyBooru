@@ -1,9 +1,9 @@
 import {defineStore} from "pinia";
-import {markRaw} from "vue";
 import type {Tab, TabState, TabType} from "@/types.ts";
 import useGallery from "@/composables/useGallery.ts"
 import useUploadStore from "@/stores/uploadStore.ts";
 import router from "@/router/index.ts";
+import useMedia from "@/composables/useMedia.ts";
 
 const useTabStore = defineStore('tabs', {
     state: () => ({
@@ -13,8 +13,9 @@ const useTabStore = defineStore('tabs', {
     }),
 
     getters: {
-        activeTab: (state) => state.tabs.find(t => t.id === state.activeTabID)!,
+        activeTab: (state) => state.tabs.find(t => t.id === state.activeTabID)! as Tab,
         activeTabIndex: (state) => state.tabs.findIndex(t => t.id === state.activeTabID),
+        tabState: (state) => state.tabs.find(t => t.id === state.activeTabID)!.state
     },
 
     actions: {
@@ -22,13 +23,12 @@ const useTabStore = defineStore('tabs', {
             const tabID = Date.now();
             let tabState = getTabState(tabType);
 
-            const tab: Tab = {
+            const tab = {
                 id: tabID,
                 title: tabType,
                 type: tabType,
-                isDirty: false,
                 state: tabState
-            }
+            } as Tab;
 
             // Pinia is being weird about unwrapping values
             // @ts-ignore
@@ -37,45 +37,44 @@ const useTabStore = defineStore('tabs', {
             return tab.id;
         },
 
-        setActiveTab(tabID: number) {
-            const tab = this.tabs.find(t => t.id === tabID);
-            if (!tab) return;
-            
-            this.activeTabID = tabID;
-            this.activeComponent = tab.type;
-            
-            router.push({
-                name: tab.type,
-                params: {tabID: tabID.toString()}
-            });
-        },
-
-        updateTabComponent(tabID: number, tabType: TabType) {
-            const tabIdx = this.tabs.findIndex(t => t.id === tabID);
-            if (tabIdx === -1) return;
-
-            let newState = getTabState(tabType);
-
-            const oldType = this.tabs[tabIdx].type
-            this.tabs[tabIdx].type = tabType;
-            // @ts-ignore
-            this.tabs[tabIdx].state = newState;
-            if (tabType !== oldType) {
-                router.push({
-                    name: tabType,
-                    params: {tabID: tabID.toString()}
-                })
-            }
-        },
-
-        invalidateGalleryTabs() {
-            for (const tab of this.tabs) {
-                if (tab.type === 'Gallery') {
-                    tab.isDirty = true;
-                }
-            }
-        },
-
+                setActiveTab(tabID: number, params?: any) {
+                    const tab = this.tabs.find(t => t.id === tabID);
+                    if (!tab) return;
+                    
+                    this.activeTabID = tabID;
+                    this.activeComponent = tab.type;
+                    
+                    const routeParams = { ...params, tabID: tabID.toString() };
+        
+                    router.push({
+                        name: tab.type,
+                        params: routeParams
+                    });
+                },
+        
+                updateTabComponent(tabID: number, tabType: TabType, params?: any) {
+                    const tabIdx = this.tabs.findIndex(t => t.id === tabID);
+                    if (tabIdx === -1) return;
+        
+                    let newState = getTabState(tabType);
+                    const oldType = this.tabs[tabIdx].type
+                    
+                    // We need to update both simultaneously to satisfy the union type if possible, 
+                    // but for reactivity we assign properties. 
+                    // @ts-ignore
+                    this.tabs[tabIdx].type = tabType;
+                    // @ts-ignore
+                    this.tabs[tabIdx].state = newState;
+        
+                    const routeParams = { ...params, tabID: tabID.toString() };
+                    
+                    if (tabType !== oldType) {
+                        router.push({
+                            name: tabType,
+                            params: routeParams
+                        })
+                    }
+                },
         removeTab(tabID: number) {
             const index = this.tabs.findIndex(t => t.id === tabID);
             if (index === -1) return;
@@ -98,13 +97,14 @@ const useTabStore = defineStore('tabs', {
             const [movedTab] = this.tabs.splice(fromIndex, 1);
             this.tabs.splice(toIndex, 0, movedTab);
         }
-    }
+    },
 });
 
 const getTabState = (tabType: TabType): TabState => {
     switch (tabType) {
         case "Gallery": return useGallery();
         case "Upload": return useUploadStore();
+        case "Media": return useMedia();
     }
 }
 

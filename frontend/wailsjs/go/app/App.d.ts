@@ -8,6 +8,8 @@ export function GetConfig():Promise<models.Config>;
 
 export function GetMediaByID(arg1:number):Promise<models.Media>;
 
+export function GetTagsByMediaID(arg1:number):Promise<Array<models.Tag>>;
+
 export function SearchMedia(arg1:string,arg2:number,arg3:number,arg4:any,arg5:any):Promise<models.SearchResult>;
 
 export function UpdateConfig(arg1:models.Config):Promise<void>;

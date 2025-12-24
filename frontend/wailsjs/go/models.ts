@@ -128,6 +128,26 @@ export namespace models {
 		    return a;
 		}
 	}
+	export class Tag {
+	    ID: number;
+	    Name: string;
+	    Category: number;
+	    UsageCount: number;
+	    CreatedAt: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new Tag(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ID = source["ID"];
+	        this.Name = source["Name"];
+	        this.Category = source["Category"];
+	        this.UsageCount = source["UsageCount"];
+	        this.CreatedAt = source["CreatedAt"];
+	    }
+	}
 
 }
 

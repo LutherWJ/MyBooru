@@ -171,6 +171,7 @@ type SearchQuery struct {
 	IncludeTags   []string
 	OptionalTags  []string
 	ExcludeTags   []string
+	WildcardTags  []string
 	Rating        []Rating
 	MinWidth      *int64
 	MaxWidth      *int64

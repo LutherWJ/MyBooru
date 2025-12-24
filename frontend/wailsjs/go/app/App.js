@@ -14,6 +14,10 @@ export function GetMediaByID(arg1) {
   return window['go']['app']['App']['GetMediaByID'](arg1);
 }
 
+export function GetTagsByMediaID(arg1) {
+  return window['go']['app']['App']['GetTagsByMediaID'](arg1);
+}
+
 export function SearchMedia(arg1, arg2, arg3, arg4, arg5) {
   return window['go']['app']['App']['SearchMedia'](arg1, arg2, arg3, arg4, arg5);
 }

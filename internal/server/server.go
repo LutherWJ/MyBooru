@@ -17,11 +17,11 @@ type Server struct {
 	server   http.Server
 	listener net.Listener
 	port     int
-	config   models.Config
-	paths    fileops.AppPaths
+	config   *models.Config
+	paths    *fileops.AppPaths
 }
 
-func NewServer(db *database.DB, config models.Config, paths fileops.AppPaths) *Server {
+func NewServer(db *database.DB, config *models.Config, paths *fileops.AppPaths) *Server {
 	return &Server{
 		db:     db,
 		config: config,

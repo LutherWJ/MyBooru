@@ -105,8 +105,8 @@ func (db *DB) DeleteTag(id int64) error {
 	return nil
 }
 
-// GetTagsForMedia retrieves all tags for a given media item
-func (db *DB) GetTagsForMedia(mediaID int64) ([]*models.Tag, error) {
+// GetTagsByMediaID retrieves all tags for a given media item
+func (db *DB) GetTagsByMediaID(mediaID int64) ([]*models.Tag, error) {
 	query := `
 		SELECT t.id, t.name, t.category, t.usage_count, t.created_at
 		FROM tags t

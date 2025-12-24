@@ -7,13 +7,14 @@ import (
 )
 
 var (
-	ErrInvalidPort      = fmt.Errorf("Invalid port number provided")
-	ErrInvalidThumbSize = fmt.Errorf("Invalid thumbnail size provided")
+	ErrInvalidPort      = fmt.Errorf("invalid port number provided")
+	ErrInvalidThumbSize = fmt.Errorf("invalid thumbnail size provided")
 )
 
 type Config struct {
-	Port          int `json:"port"`
-	ThumbnailSize int `json:"thumbnail_sizes"`
+	AppDir        string `json:"app_dir"`
+	Port          int    `json:"port"`
+	ThumbnailSize int    `json:"thumbnail_sizes"`
 }
 
 func DefaultConfig() *Config {

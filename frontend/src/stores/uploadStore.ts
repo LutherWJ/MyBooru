@@ -1,5 +1,5 @@
 import {defineStore} from 'pinia'
-import {useAppStore} from "@/stores/appStore.ts";
+import {useAPI} from "@/composables/useAPI.ts";
 
 const CHUNK_SIZE = 1024 * 1024 * 4; // 4mb
 
@@ -41,9 +41,10 @@ const useUploadStore = defineStore('uploads', {
             const upload = this.mediaList[this.selectedIndex];
             const uploadSize = upload.size;
             const chunkCount = Math.ceil(uploadSize / CHUNK_SIZE);
+            const api = useAPI();
 
             try {
-                const sessionID = await startUpload(upload.size);
+                const sessionID = await api.startUpload(upload.size);
 
                 for (let i = 0; i < chunkCount; i++) {
                     const chunkStart = i * CHUNK_SIZE;
@@ -53,12 +54,12 @@ const useUploadStore = defineStore('uploads', {
                     const arrayBuffer = await chunk.arrayBuffer();
                     const data = new Uint8Array(arrayBuffer);
 
-                    await uploadChunk(sessionID, data);
+                    await api.uploadChunk(sessionID, data);
                     this.uploadProgress = Math.round(((i + 1) / chunkCount) * 100);
                }
 
                 const tagString = this.mediaTagList[this.selectedIndex] || '';
-                const mediaID = await finalizeUpload(sessionID, tagString);
+                const mediaID = await api.finalizeUpload(sessionID, tagString);
 
                 this.uploadProgress = 0;
                 return mediaID;
@@ -69,52 +70,5 @@ const useUploadStore = defineStore('uploads', {
         },
     }
 })
-
-const startUpload = async (size: number): Promise<string | null> => {
-    try {
-        const store = useAppStore();
-        const port = store.port;
-        const res = await fetch(`http://localhost:${port}/upload/init`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({totalSize: size})
-        });
-        if (!res.ok) return null
-        const data = await res.json();
-        return data.sessionID;
-    } catch (err) {
-        console.error(err);
-        return null;
-    }
-}
-
-const uploadChunk = async (sessionID: string | null, chunk: Uint8Array) => {
-    if (sessionID === null) throw new Error('Session does not exist')
-    const store = useAppStore();
-    const port = store.port;
-    const res = await fetch(`http://localhost:${port}/upload/chunk?sessionID=${sessionID}`, {
-        method: 'POST',
-        // @ts-ignore
-        body: chunk
-    });
-    if (!res.ok) throw new Error('Failed to upload chunk');
-}
-
-const finalizeUpload = async (sessionID: string | null, tags: string) => {
-    const store = useAppStore();
-    const port = store.port;
-    if (sessionID === null) throw new Error('Session does not exist')
-    const res = await fetch(`http://localhost:${port}/upload/finalize?sessionID=${sessionID}&tags=${tags}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-    });
-    if (!res.ok) throw new Error('Failed to finalize upload');
-    const data = await res.json();
-    return data.mediaID;
-}
 
 export default useUploadStore;

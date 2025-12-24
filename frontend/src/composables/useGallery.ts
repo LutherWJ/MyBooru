@@ -2,6 +2,7 @@ import {computed, ref} from "vue";
 import {SearchMedia} from "../../wailsjs/go/app/App";
 import {models} from '../../wailsjs/go/models'
 import SearchResult = models.SearchResult;
+import {useAppStore} from "@/stores/appStore.ts";
 
 const ITEMS_PER_PAGE = 20;
 
@@ -63,6 +64,12 @@ const useGallery = () => {
         }
     };
 
+    const getThumbnail = (md5: string) => {
+        const appStore = useAppStore();
+        if (!appStore.port) return "";
+        return `http://localhost:${appStore.port}/thumbnail/${md5}.jpg`;
+    };
+
     return {
         searchBox,
         searchResults,
@@ -74,12 +81,9 @@ const useGallery = () => {
         search,
         nextPage,
         prevPage,
-        jumpToPage
+        jumpToPage,
+        getThumbnail
     }
-}
-
-const searchMedia = (query: string, limit: number, offset: number, lastID: string | null, firstID: string | null) => {
-
 }
 
 export default useGallery;

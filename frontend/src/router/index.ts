@@ -2,6 +2,7 @@ import {createRouter, createWebHashHistory} from 'vue-router';
 import type {RouteRecordRaw} from 'vue-router';
 import Gallery from "../views/Gallery.vue";
 import Upload from '../views/Upload.vue';
+import Media from "@/views/Media.vue";
 
 const routes: RouteRecordRaw[] = [
     {
@@ -19,6 +20,11 @@ const routes: RouteRecordRaw[] = [
         path: '/upload/:tabID',
         name: 'Upload',
         component: Upload
+    },
+    {
+        path: '/media/:tabID/:mediaID',
+        name: 'Media',
+        component: Media
     }
 ];
 

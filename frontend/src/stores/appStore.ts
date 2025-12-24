@@ -16,5 +16,13 @@ export const useAppStore = defineStore('app', {
         await UpdateConfig(config);
         this.config = await GetConfig();
     },
+    getThumbnailUrl(md5: string): string {
+        if (!this.port) return "";
+        return `http://localhost:${this.port}/thumbnail/${md5}.jpg`;
+    },
+      getMediaUrl(md5: string, ext: string) {
+        if (!this.port) return "";
+        return `http://localhost:${this.port}/media/${md5}.${ext}`;
+      }
   }
 });

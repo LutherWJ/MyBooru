@@ -7,15 +7,18 @@ import (
 	"strings"
 )
 
-func (s *Server) handleMedia(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleGetMedia(w http.ResponseWriter, r *http.Request) {
 	path := strings.TrimPrefix(r.URL.Path, "/media/")
-	if path == "" || path == r.URL.Path {
+	path = strings.TrimPrefix(path, "/")
+
+	if path == "" {
 		http.Error(w, "Invalid path", http.StatusBadRequest)
 		return
 	}
 
 	ext := filepath.Ext(path)
 	hash := strings.TrimSuffix(path, ext)
+	ext = strings.TrimPrefix(ext, ".")
 
 	mediaPath, err := s.paths.GetMediaFilePath(hash, ext)
 	if err != nil {
@@ -26,9 +29,11 @@ func (s *Server) handleMedia(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, mediaPath)
 }
 
-func (s *Server) handleThumbnail(w http.ResponseWriter, r *http.Request) {
-	path := strings.TrimPrefix(r.URL.Path, "/thumbnail")
-	if path == "" || path == r.URL.Path {
+func (s *Server) handleGetThumbnail(w http.ResponseWriter, r *http.Request) {
+	path := strings.TrimPrefix(r.URL.Path, "/thumbnail/")
+	path = strings.TrimPrefix(path, "/")
+
+	if path == "" {
 		http.Error(w, "Invalid path", http.StatusBadRequest)
 		return
 	}
@@ -92,8 +97,4 @@ func (s *Server) handleUploadFinalize(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]int64{
 		"mediaID": mediaID,
 	})
-}
-
-func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
-
 }
