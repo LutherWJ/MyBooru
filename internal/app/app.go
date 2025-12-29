@@ -75,3 +75,4 @@ func (a *App) SearchMedia(searchString string, limit int, offset int, beforeID *
 	query.AfterID = afterID
 	return a.db.GetMediaBySearch(query)
 }
+

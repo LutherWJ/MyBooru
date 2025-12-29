@@ -1,6 +1,7 @@
 export namespace models {
 	
 	export class Config {
+	    app_dir: string;
 	    port: number;
 	    thumbnail_sizes: number;
 	
@@ -10,6 +11,7 @@ export namespace models {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.app_dir = source["app_dir"];
 	        this.port = source["port"];
 	        this.thumbnail_sizes = source["thumbnail_sizes"];
 	    }

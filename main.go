@@ -34,7 +34,7 @@ func main() {
 	}
 	defer db.Close()
 
-	srv := server.NewServer(db, *config, paths)
+	srv := server.NewServer(db, config, &paths)
 
 	application := app.NewApp(db, paths, config, srv)
 
@@ -48,7 +48,7 @@ func main() {
 		BackgroundColour: &options.RGBA{R: 30, G: 30, B: 44, A: 1},
 		OnStartup:        application.Startup,
 		OnShutdown:       application.Shutdown,
-		Bind: []interface{}{
+		Bind: []any{
 			application,
 		},
 	})

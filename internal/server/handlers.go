@@ -87,7 +87,7 @@ func (s *Server) handleUploadFinalize(w http.ResponseWriter, r *http.Request) {
 	sessionID := r.URL.Query().Get("sessionID")
 	tagList := r.URL.Query().Get("tags")
 
-	mediaID, err := s.paths.FinalizeUpload(s.db, &s.config, sessionID, tagList)
+	mediaID, err := s.paths.FinalizeUpload(s.db, s.config, sessionID, tagList)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

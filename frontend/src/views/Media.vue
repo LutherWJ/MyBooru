@@ -22,9 +22,9 @@ onMounted(() => {
 </script>
 
 <template>
-  <div v-if="state.media" class="flex items-center justify-center w-full h-full bg-black">
+  <div v-if="state.media.value" class="flex items-center justify-center w-full h-full bg-black">
     <img
-        :src="appStore.getMediaUrl(state.media.MD5, state.media.FileExt)"
+        :src="appStore.getMediaUrl(state.media.value.MD5, state.media.value.FileExt)"
         class="max-w-full max-h-full object-contain"
         alt="Failed to load media"
     />
