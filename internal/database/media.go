@@ -321,21 +321,16 @@ func (db *DB) GetMediaBySearch(query *models.SearchQuery) (*models.SearchResult,
 		args = append(args, query.CreatedBefore.Unix())
 	}
 
-	// Apply cursor-based pagination filters (priority: BeforeID > AfterID)
-	if query.BeforeID != nil {
-		// Next page: get items before this ID (older items)
-		whereClauses = append(whereClauses, "m.id < ?")
-		args = append(args, *query.BeforeID)
-	} else if query.AfterID != nil {
-		// Previous page: get items after this ID (newer items)
-		whereClauses = append(whereClauses, "m.id > ?")
-		args = append(args, *query.AfterID)
-	}
+	// Capture the base args and where clauses for the count query *before* adding pagination
+	baseWhereClauses := make([]string, len(whereClauses))
+	copy(baseWhereClauses, whereClauses)
+	baseArgs := make([]interface{}, len(args))
+	copy(baseArgs, args)
 
-	// Build WHERE clause once for both count and main query
-	whereClause := ""
-	if len(whereClauses) > 0 {
-		whereClause = " WHERE " + strings.Join(whereClauses, " AND ")
+	// Build Base WHERE clause for Count
+	baseWhereClause := ""
+	if len(baseWhereClauses) > 0 {
+		baseWhereClause = " WHERE " + strings.Join(baseWhereClauses, " AND ")
 	}
 
 	// Count total results (excluding pagination)
@@ -346,17 +341,44 @@ func (db *DB) GetMediaBySearch(query *models.SearchQuery) (*models.SearchResult,
 		countQuery += fmt.Sprintf(" INNER JOIN media_tags %s ON m.id = %s.media_id", mtAlias, mtAlias)
 		countQuery += fmt.Sprintf(" INNER JOIN tags %s ON %s.tag_id = %s.id", tAlias, mtAlias, tAlias)
 	}
-	countQuery += whereClause
+	countQuery += baseWhereClause
 
 	var totalCount int64
-	err := db.QueryRow(countQuery, args...).Scan(&totalCount)
+	err := db.QueryRow(countQuery, baseArgs...).Scan(&totalCount)
 	if err != nil {
 		return nil, WrapQueryError("media count", err)
 	}
 
-	// Add WHERE and ORDER BY to main query
+	// Apply cursor-based pagination filters (priority: BeforeID > AfterID)
+	sortAsc := false
+	if query.BeforeID != nil {
+		// Next page: get items before this ID (older items)
+		whereClauses = append(whereClauses, "m.id < ?")
+		args = append(args, *query.BeforeID)
+	} else if query.AfterID != nil {
+		// Previous page: get items after this ID (newer items)
+		// We must sort ASC to get the items *immediately* after the cursor,
+		// then reverse them to restore DESC order.
+		whereClauses = append(whereClauses, "m.id > ?")
+		args = append(args, *query.AfterID)
+		sortAsc = true
+	}
+
+	// Build Final WHERE clause
+	whereClause := ""
+	if len(whereClauses) > 0 {
+		whereClause = " WHERE " + strings.Join(whereClauses, " AND ")
+	}
+
+	// Add WHERE to main query
 	sqlQuery += whereClause
-	sqlQuery += " ORDER BY m.created_at DESC"
+
+	// Add ORDER BY
+	if sortAsc {
+		sqlQuery += " ORDER BY m.id ASC"
+	} else {
+		sqlQuery += " ORDER BY m.id DESC"
+	}
 
 	// Determine limit (default: 20)
 	limit := query.Limit
@@ -407,6 +429,14 @@ func (db *DB) GetMediaBySearch(query *models.SearchQuery) (*models.SearchResult,
 	hasMore := len(mediaList) > limit
 	if hasMore {
 		mediaList = mediaList[:limit]
+	}
+
+	// If we sorted ASC (for AfterID/Previous Page), reverse the list
+	// to match the expected DESC order (Newest -> Oldest)
+	if sortAsc {
+		for i, j := 0, len(mediaList)-1; i < j; i, j = i+1, j-1 {
+			mediaList[i], mediaList[j] = mediaList[j], mediaList[i]
+		}
 	}
 
 	var firstID, lastID int64

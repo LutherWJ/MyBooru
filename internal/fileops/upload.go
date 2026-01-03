@@ -18,6 +18,7 @@ import (
 
 	"mybooru/internal/database"
 	"mybooru/internal/models"
+	"mybooru/internal/ui"
 )
 
 var (
@@ -444,7 +445,7 @@ func (paths *AppPaths) FinalizeUpload(db *database.DB, config *models.Config, se
 	}
 	fmt.Printf("LOG: Media record created with ID: %d\n", id)
 
-	tags, err := ParseTags(tagList)
+	tags, err := ui.ParseTags(tagList)
 	if err != nil {
 		fmt.Printf("ERROR: Failed to parse tags: %v\n", err)
 		dbCleanup()
@@ -474,7 +475,7 @@ func (paths *AppPaths) FinalizeUpload(db *database.DB, config *models.Config, se
 }
 
 func TagPost(db *database.DB, mediaID int64, tagInput string) error {
-	tags, err := ParseTags(tagInput)
+	tags, err := ui.ParseTags(tagInput)
 	if err != nil {
 		return fmt.Errorf("invalid tag format: %w", err)
 	}

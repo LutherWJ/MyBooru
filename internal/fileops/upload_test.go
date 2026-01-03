@@ -102,7 +102,7 @@ func TestUploadFlow(t *testing.T) {
 	// Upload a chunk (dummy data)
 	dummyData := []byte("dummy data")
 	base64Data := base64.StdEncoding.EncodeToString(dummyData)
-	err = paths.UploadChunk(sessionID, base64Data)
+	err = paths.UploadChunk(sessionID, strings.NewReader(base64Data))
 	if err != nil {
 		t.Fatalf("UploadChunk failed: %v", err)
 	}

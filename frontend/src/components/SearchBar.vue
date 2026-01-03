@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { ref, watch, onMounted } from 'vue';
+
 // Vue 3.4+ defineModel macro automatically handles the modelValue prop and update:modelValue emit
 const query = defineModel<string>({ default: '' });
 const props = defineProps<{
@@ -8,6 +10,20 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'search'): void
 }>();
+
+const searchInput = ref<HTMLInputElement | null>(null);
+
+watch(() => props.isFocused, (newVal) => {
+  if (newVal) {
+    searchInput.value?.focus();
+  }
+});
+
+onMounted(() => {
+  if (props.isFocused) {
+    searchInput.value?.focus();
+  }
+});
 
 const handleKeydown = (e: KeyboardEvent) => {
   if (e.key === 'Enter') {
@@ -24,6 +40,7 @@ const handleKeydown = (e: KeyboardEvent) => {
       </svg>
     </div>
     <input
+      ref="searchInput"
       v-model="query"
       @keydown="handleKeydown"
       type="text"

@@ -13,14 +13,14 @@ const tabStore = useTabStore();
     <div class="h-8 w-px bg-gray-700 mx-2"></div>
 
     <button 
-      @click="tabStore.updateTabComponent(tabStore.activeTabID, 'Gallery')"
+      @click="tabStore.navigate(tabStore.activeTabID, 'Gallery')"
       class="text-gray-300 hover:text-white font-medium transition-colors px-3 py-2 rounded hover:bg-gray-800 cursor-pointer"
     >
       Gallery
     </button>
     
     <button 
-      @click="tabStore.updateTabComponent(tabStore.activeTabID, 'Upload')"
+      @click="tabStore.navigate(tabStore.activeTabID, 'Upload')"
       class="text-gray-300 hover:text-white font-medium transition-colors px-3 py-2 rounded hover:bg-gray-800 cursor-pointer"
     >
       Upload

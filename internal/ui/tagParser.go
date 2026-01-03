@@ -1,4 +1,4 @@
-package fileops
+package ui
 
 import (
 	"fmt"

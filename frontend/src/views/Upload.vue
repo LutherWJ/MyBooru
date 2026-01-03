@@ -34,7 +34,6 @@ const handleSave = async () => {
         console.error('Upload failed:', error);
     }
 };
-
 </script>
 
 <template>

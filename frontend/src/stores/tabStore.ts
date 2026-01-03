@@ -31,6 +31,7 @@ const useTabStore = defineStore("tabs", {
         title: tabType,
         type: tabType,
         state: tabState,
+        history: [],
       } as Tab;
 
       // Pinia is being weird about unwrapping values
@@ -80,12 +81,28 @@ const useTabStore = defineStore("tabs", {
       }
     },
 
-    updateTabComponent(tabID: number, tabType: TabType, params?: any) {
+    navigate(tabID: number, tabType: TabType, params?: any) {
       const tabIdx = this.tabs.findIndex((t) => t.id === tabID);
       if (tabIdx === -1) return;
 
+      const tab = this.tabs[tabIdx];
+      const oldType = tab.type;
+      const oldState = tab.state;
+
+      // Capture current params for history restoration
+      let historyParams = {};
+      if (tab.id === this.activeTabID) {
+        const { tabID: _t, ...rest } = router.currentRoute.value.params;
+        historyParams = rest;
+      }
+
+      tab.history.push({
+        type: oldType,
+        state: oldState,
+        params: historyParams,
+      });
+
       let newState = getTabState(tabType);
-      const oldType = this.tabs[tabIdx].type;
 
       // We need to update both simultaneously to satisfy the union type if possible,
       // but for reactivity we assign properties.
@@ -96,13 +113,32 @@ const useTabStore = defineStore("tabs", {
 
       const routeParams = { ...params, tabID: tabID.toString() };
 
-      if (tabType !== oldType) {
-        router.push({
-          name: tabType,
-          params: routeParams,
-        });
-      }
+      router.push({
+        name: tabType,
+        params: routeParams,
+      });
     },
+
+    goBack(tabID: number) {
+      const tab = this.tabs.find((t) => t.id === tabID);
+      if (!tab || tab.history.length === 0) return;
+
+      const entry = tab.history.pop();
+      if (!entry) return;
+
+      // @ts-ignore
+      tab.type = entry.type;
+      // @ts-ignore
+      tab.state = entry.state;
+
+      const routeParams = { ...entry.params, tabID: tabID.toString() };
+
+      router.push({
+        name: entry.type,
+        params: routeParams,
+      });
+    },
+
     removeTab(tabID: number) {
       const index = this.tabs.findIndex((t) => t.id === tabID);
       if (index === -1) return;

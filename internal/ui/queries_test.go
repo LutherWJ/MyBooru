@@ -1,4 +1,4 @@
-package search
+package ui
 
 import (
 	"reflect"
@@ -133,28 +133,3 @@ func TestParseQuery(t *testing.T) {
 	}
 }
 
-func TestIsWhitespace(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    rune
-		expected bool
-	}{
-		{"space", ' ', true},
-		{"tab", '\t', true},
-		{"newline", '\n', true},
-		{"carriage return", '\r', true},
-		{"letter", 'a', false},
-		{"dash", '-', false},
-		{"tilde", '~', false},
-		{"underscore", '_', false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := isWhitespace(tt.input)
-			if result != tt.expected {
-				t.Errorf("isWhitespace(%q) = %v; want %v", tt.input, result, tt.expected)
-			}
-		})
-	}
-}

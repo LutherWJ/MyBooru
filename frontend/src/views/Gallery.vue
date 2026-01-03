@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import SearchBar from "@/components/SearchBar.vue";
 import useTabStore from "@/stores/tabStore.ts";
-import { computed, onMounted, onUnmounted, unref, watch } from "vue";
+import { ref, computed, onMounted, onUnmounted, unref, watch } from "vue";
 import { validateTabType } from "@/types.ts";
-import { COLS } from "@/composables/useGallery.ts";
+import { COLS } from '@/composables/useGallery';
 
 const tabStore = useTabStore();
 
@@ -12,41 +12,57 @@ const state = computed(() => {
     return validateTabType(tab, 'Gallery') ? tab.state : null;
 });
 
-// Ensure we have a valid state before rendering/acting
 onMounted(() => {
+// Ensure we have a valid state before rendering/acting
     if (!state.value) {
         console.warn("Gallery component mounted without Gallery state");
         if (tabStore.tabs.length === 0) {
             const id = tabStore.addTab('Gallery');
             tabStore.setActiveTab(id);
+            return;
         }
-    } else {
-        state.value.search();
+    } 
+    
+    if (state.value) {
+        if (!unref(state.value.hasResults)) {
+            state.value.search();
+        }
         state.value.enableKeyboard();
     }
+
 });
 
 onUnmounted(() => {
     state.value?.disableKeyboard();
 });
 
-const searchResults = computed(() => state.value?.searchResults.value.Media || []);
-const selectedIdx = computed(() => state.value?.selectedIdx.value ?? -1);
+// Use unref to handle potential unwrapping nuances and safe access
+const searchResults = computed(() => unref(state.value?.searchResults)?.Media || []);
+const selectedIdx = computed(() => unref(state.value?.selectedIdx) ?? -1);
 
 const searchBox = computed({
     get: () => unref(state.value?.searchBox) || '',
     set: (val) => {
         if (state.value) {
-            state.value.searchBox.value = val;
+            // @ts-ignore
+            state.value.searchBox = val;
         }
     }
 });
 
+// Selection handling
+const mediaRefs = ref<HTMLElement[]>([]);
+
 // Auto-scroll to selected element
 watch(selectedIdx, (newIdx) => {
+    console.log(selectedIdx.value)
     if (newIdx > 0) {
-        const el = document.getElementById(`media-${newIdx}`);
-        el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        // newIdx is 1-based (0 is search bar), so subtract 1 for array index
+        const el = mediaRefs.value[newIdx - 1];
+        if (el) {
+            el.focus();
+            el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
     }
 });
 
@@ -72,10 +88,11 @@ watch(selectedIdx, (newIdx) => {
                         selectedIdx === index + 1
                             ? 'border-blue-500 shadow-lg shadow-blue-500/20 scale-105 z-10'
                             : 'border-transparent hover:border-gray-600'
-                    ]" @click="tabStore.updateTabComponent(tabStore.activeTabID, 'Media', { mediaID: media.ID })">
+                    ]" @click="tabStore.navigate(tabStore.activeTabID, 'Media', { mediaID: media.ID })"
+                    ref="mediaRefs" tabindex="-1">
                     <img :src="state?.getThumbnail(media.MD5)"
                         class="w-full h-full object-cover transform transition-transform duration-500 ease-out will-change-transform"
-                        :class="{ 'group-hover:scale-110': selectedIdx !== index + 1 }" loading="lazy" />
+                        :class="{ 'group-hover:scale-110': selectedIdx !== index + 1 }" />
 
                     <!-- Hover/Selection Overlay -->
                     <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent transition-opacity duration-300 pointer-events-none"
@@ -88,11 +105,6 @@ watch(selectedIdx, (newIdx) => {
             </div>
 
             <div v-else class="flex flex-col items-center justify-center h-[60vh] text-gray-500">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-                    stroke="currentColor" class="w-16 h-16 mb-4 opacity-20">
-                    <path stroke-linecap="round" stroke-linejoin="round"
-                        d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
-                </svg>
                 <p class="text-lg font-medium">No results found</p>
                 <p class="text-sm opacity-60 mt-1">Try adjusting your search terms</p>
             </div>

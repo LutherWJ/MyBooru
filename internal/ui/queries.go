@@ -1,4 +1,4 @@
-package search
+package ui
 
 import (
 	"mybooru/internal/models"
@@ -8,10 +8,6 @@ import (
 type parser struct {
 	query []rune
 	pos   int
-}
-
-func isWhitespace(c rune) bool {
-	return c == ' ' || c == '\t' || c == '\n' || c == '\r'
 }
 
 // parseTag assumes the parser position is on the first character of a word (after a space or modifier char).

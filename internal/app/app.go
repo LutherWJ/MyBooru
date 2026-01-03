@@ -7,8 +7,8 @@ import (
 	"mybooru/internal/database"
 	"mybooru/internal/fileops"
 	"mybooru/internal/models"
-	"mybooru/internal/search"
 	"mybooru/internal/server"
+	"mybooru/internal/ui"
 )
 
 type App struct {
@@ -68,7 +68,7 @@ func (a *App) GetApiPort() int {
 }
 
 func (a *App) SearchMedia(searchString string, limit int, offset int, beforeID *int64, afterID *int64) (*models.SearchResult, error) {
-	query := search.ParseQuery(searchString)
+	query := ui.ParseQuery(searchString)
 	query.Limit = limit
 	query.Offset = offset
 	query.BeforeID = beforeID
@@ -76,3 +76,56 @@ func (a *App) SearchMedia(searchString string, limit int, offset int, beforeID *
 	return a.db.GetMediaBySearch(query)
 }
 
+func (a *App) UpdateMediaTags(mediaID int64, tagString string) error {
+	newTags, err := ui.ParseTags(tagString)
+	if err != nil {
+		return err
+	}
+
+	oldTags, err := a.db.GetTagsByMediaID(mediaID)
+	if err != nil {
+		return err
+	}
+
+	// Create map of new tags for O(1) lookup
+	newTagMap := make(map[string]bool)
+	for _, t := range newTags {
+		newTagMap[t.Name] = true
+	}
+
+	// Create map of old tags
+	oldTagMap := make(map[string]int64)
+	for _, t := range oldTags {
+		oldTagMap[t.Name] = t.ID
+	}
+
+	// Tags to add
+	var toAdd []models.CreateTagInput
+	for _, t := range newTags {
+		if _, exists := oldTagMap[t.Name]; !exists {
+			toAdd = append(toAdd, t)
+		}
+	}
+
+	// Tags to remove
+	var toRemove []int64
+	for _, t := range oldTags {
+		if !newTagMap[t.Name] {
+			toRemove = append(toRemove, t.ID)
+		}
+	}
+
+	if len(toAdd) > 0 {
+		if err := a.db.AddTagsToMediaTx(mediaID, toAdd); err != nil {
+			return err
+		}
+	}
+
+	for _, tagID := range toRemove {
+		if err := a.db.RemoveTagFromMedia(mediaID, tagID); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}

@@ -24,7 +24,7 @@ func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 		origin := r.Header.Get("Origin")
 
 		if strings.HasPrefix(origin, "http://localhost") ||
-			strings.HasPrefix(origin, "http://wails.localhost") {
+			strings.HasPrefix(origin, "wails://wails.localhost") {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
